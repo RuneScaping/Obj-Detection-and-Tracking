@@ -133,3 +133,30 @@ int main(int argc, char * argv[])
                     //location = boards[0];
                     location = Rect(boards[0].x + loc.x, boards[0].y + loc.y, boards[0].width, boards[0].height);
                     tracker.initTracking(frame,location);
+                }
+            }
+        }
+        toc = cv::getTickCount() - tic;
+        time += toc;
+
+        if (show_visualization) {
+            cv::putText(frame, std::to_string(frame_num), cv::Point(20, 40), 6, 1,
+                cv::Scalar(0, 255, 255), 2);
+            if(status == 1)
+                cv::rectangle(frame, location, cv::Scalar(0, 128, 255), 2);
+            cv::imshow("detectracker", frame);
+            //output_dst << frame;
+
+            char key = cv::waitKey(10);
+            if (key == 27 || key == 'q' || key == 'Q')
+                break;
+        }
+    }
+    
+    time = time / double(cv::getTickFrequency());
+    double fps = double(frame_num) / time;
+    std::cout << "fps:" << fps << std::endl;
+    cv::destroyAllWindows();
+
+    return 0;
+}
