@@ -67,3 +67,12 @@ Rect Template::track(Mat frame)
     minMaxLoc(similarity, 0, &mag_r, 0, &point);
     this->location.x = point.x + searchWindow.x;
     this->location.y = point.y + searchWindow.y;
+
+    this->model = gray(location);
+    return this->location;
+}
+
+Rect Template::getLocation()
+{
+    return this->location;
+}
