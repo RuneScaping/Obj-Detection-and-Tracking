@@ -407,3 +407,119 @@ void mGradHist( int nl, mxArray *pl[], int nr, const mxArray *pr[] ) {
   binSize  = (nr>=3) ? (int)   mxGetScalar(pr[2])    : 8;
   nOrients = (nr>=4) ? (int)   mxGetScalar(pr[3])    : 9;
   softBin  = (nr>=5) ? (int)   mxGetScalar(pr[4])    : 1;
+  useHog   = (nr>=6) ? (int)   mxGetScalar(pr[5])    : 0;
+  clipHog  = (nr>=7) ? (float) mxGetScalar(pr[6])    : 0.2f;
+  full     = (nr>=8) ? (bool) (mxGetScalar(pr[7])>0) : false;
+  hb = h/binSize; wb = w/binSize;
+  nChns = useHog== 0 ? nOrients : (useHog==1 ? nOrients*4 : nOrients*3+5);
+  pl[0] = mxCreateMatrix3(hb,wb,nChns,mxSINGLE_CLASS,1,(void**)&H);
+  if( nOrients==0 ) return;
+  if( useHog==0 ) {
+    gradHist( M, O, H, h, w, binSize, nOrients, softBin, full );
+  } else if(useHog==1) {
+    hog( M, O, H, h, w, binSize, nOrients, softBin, full, clipHog );
+  } else {
+    fhog( M, O, H, h, w, binSize, nOrients, softBin, clipHog );
+  }
+}
+
+// inteface to various gradient functions (see corresponding Matlab functions)
+void mexFunction( int nl, mxArray *pl[], int nr, const mxArray *pr[] ) {
+  int f; char action[1024]; f=mxGetString(pr[0],action,1024); nr--; pr++;
+  if(f) mexErrMsgTxt("Failed to get action.");
+  else if(!strcmp(action,"gradient2")) mGrad2(nl,pl,nr,pr);
+  else if(!strcmp(action,"gradientMag")) mGradMag(nl,pl,nr,pr);
+  else if(!strcmp(action,"gradientMagNorm")) mGradMagNorm(nl,pl,nr,pr);
+  else if(!strcmp(action,"gradientHist")) mGradHist(nl,pl,nr,pr);
+  else mexErrMsgTxt("Invalid action.");
+}
+#endif
+
+
+float* crop_H(float *H,int* h_height,int* h_width,int depth,int dh,int dw) {
+    int crop_h = *h_height-dh-1;
+    int crop_w = *h_width-dw-1;
+    float* crop_H = new float[crop_h*crop_w*depth];
+
+    for(int i = 1;i < *h_height-dh;i ++)
+        for(int j = 1;j < *h_width-dw;j ++)
+            for(int k = 0;k < depth;k ++)
+                crop_H[i-1 + (j-1)*(crop_h) + k*(crop_h*crop_w)] = H[k*(*h_width * *h_height) + j*(*h_height) + i];
+    delete H;
+    *h_height = crop_h;*h_width = crop_w;
+    return crop_H;
+}
+
+float* fhog(float *M,float* O,int height,int width,int channel,int *h,int *w,int *d,int binSize, int nOrients, float clip, bool crop) {
+    *h = height/binSize;
+    *w = width/binSize;
+    *d = nOrients*3+5;
+
+    float* H = new float[(*h)*(*w)*(*d)];
+    memset(H,0.0f,(*h)*(*w)*(*d)*sizeof(float));
+
+    fhog( M, O, H, height, width, binSize, nOrients, -1, clip );
+
+    if(!crop)
+        return H;
+    return crop_H(H,h,w,*d,height%binSize < binSize/2,width%binSize < binSize/2);
+}
+
+void fhog(cv::MatND &fhog_feature, const cv::Mat& input, int binSize, int nOrients, float clip, bool crop) {
+    int HEIGHT = input.rows;
+    int WIDTH = input.cols;
+    int DEPTH = input.channels();
+
+    float *II = new float[HEIGHT*WIDTH*DEPTH];
+    int count=0;
+
+    // MatLab:: RGB, OpenCV: BGR
+
+    for (int i = 0; i < WIDTH; i++) {
+        for (int j = 0; j < HEIGHT; j++) {
+            cv::Vec3b p = input.at<cv::Vec3b>(j,i);
+            II[count+2] = p[0]; // B->R
+            II[count+1] = p[1]; // G->G
+            II[count+0] = p[2]; // R->B
+            count += 3;
+        }
+    }
+
+    float *I = new float[HEIGHT*WIDTH*DEPTH];
+
+    // channel x width x height
+    for (int i = 0; i < WIDTH; i++) {
+        for (int j = 0; j < HEIGHT; j++) {
+            for (int k = 0; k < DEPTH; k++) {
+                I[k*WIDTH*HEIGHT+i*HEIGHT+j] = II[i*HEIGHT*DEPTH+j*DEPTH+k];
+            }
+        }
+    }
+
+    float *M = new float[HEIGHT*WIDTH], *O = new float[HEIGHT*WIDTH];
+    gradMag(I, M, O, HEIGHT, WIDTH, DEPTH, true);
+
+    int h,w,d;
+    float* HH = fhog(M,O,HEIGHT,WIDTH,DEPTH,&h,&w,&d,binSize,nOrients,clip,crop);
+    float* H = new float[w*h*d];
+
+    for(int i = 0;i < w; i++)
+        for(int j = 0;j < h; j++)
+            for(int k = 0;k < d; k++)
+                //H[i*h*d+j*d+k] = HH[k*w*h+i*h+j]; // ->hwd
+                H[j*w*d+i*d+k] = HH[k*w*h+i*h+j]; // ->whd
+
+    fhog_feature = cv::MatND(h,w,CV_32FC(32),H).clone();
+
+    delete[] H;
+
+    delete[] M; delete[] O;
+    delete[] II;delete[] I;delete[] HH;
+}
+
+void fhog28(cv::MatND &fhog_feature, const cv::Mat& input, int binSize, int nOrients, float clip, bool crop) {
+    int HEIGHT = input.rows;
+    int WIDTH = input.cols;
+    int DEPTH = input.channels();
+
+    float *II = new float[WIDTH*HEIGHT*DEPTH];
