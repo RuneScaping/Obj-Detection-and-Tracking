@@ -608,3 +608,39 @@ void fhog31(cv::MatND &fhog_feature, const cv::Mat& input, int binSize, int nOri
     for (int i = 0; i < WIDTH; i++) {
         for (int j = 0; j < HEIGHT; j++) {
             for (int k = 0; k < DEPTH; k++) {
+                I[k*WIDTH*HEIGHT+i*HEIGHT+j] = II[i*HEIGHT*DEPTH+j*DEPTH+k];
+            }
+        }
+    }
+
+    float *M = new float[HEIGHT*WIDTH], *O = new float[HEIGHT*WIDTH];
+    gradMag(I, M, O, HEIGHT, WIDTH, DEPTH, true);
+
+    int h,w,d;
+    float* HH = fhog(M,O,HEIGHT,WIDTH,DEPTH,&h,&w,&d,binSize,nOrients,clip,crop);
+
+    #undef CHANNELS
+    #define CHANNELS 31
+
+    assert(d >= CHANNELS);
+
+    // out = zeros(h, w, 31, 'single');
+    // out(:,:,1:31) = temp(:,:,1:31);
+
+    float* H = new float[w*h*CHANNELS];
+
+    for(int i = 0;i < w; i++)
+        for(int j = 0;j < h; j++) {
+            for(int k = 0;k < CHANNELS;k++) {
+                //H[i*h*CHANNELS+j*CHANNELS+k+1] = HH[k*w*h+i*h+j]; // ->hwd
+                H[j*w*CHANNELS+i*CHANNELS+k] = HH[k*w*h+i*h+j]; // ->whd
+            }
+        }
+
+    fhog_feature = cv::MatND(h,w,CV_32FC(CHANNELS),H).clone();
+
+    delete[] H;
+
+    delete[] M; delete[] O;
+    delete[] II;delete[] I;delete[] HH;
+}
