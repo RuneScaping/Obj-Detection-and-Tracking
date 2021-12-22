@@ -106,3 +106,48 @@ int main(int argc, char * argv[])
                 status = 0;
                 continue;
             }
+            // if(frame_num % 3 == 0)
+            // {
+            //     Mat roi = frame(location);
+            //     imwrite("../data/" + to_string(frame_num) + ".jpg", roi);
+            // }
+            
+            staple.tracker_staple_train(frame, false);
+            result_rects.push_back(location);
+            if(frame_num % 10 == 0)
+            {
+                Mat roi = frame(location);
+                std::vector<Rect> boards;
+                detector.detectMultiScale( roi, boards, 1.1, 2, 
+                            0|CASCADE_SCALE_IMAGE, roi.size(), roi.size());
+                cout << "[debug] boards: " << boards.size() << endl;
+                if(boards.size() <= 0)
+                {
+                    status = 0;
+                }
+            }
+        }
+        toc = cv::getTickCount() - tic;
+        time += toc;
+
+        if (show_visualization) {
+            cv::putText(frame, std::to_string(frame_num), cv::Point(20, 40), 6, 1,
+                cv::Scalar(0, 255, 255), 2);
+            if(status == 1)
+                cv::rectangle(frame, location, cv::Scalar(0, 128, 255), 2);
+            cv::imshow("detectracker", frame);
+            //output_dst << frame;
+
+            char key = cv::waitKey(10);
+            if (key == 27 || key == 'q' || key == 'Q')
+                break;
+        }
+    }
+    
+    time = time / double(cv::getTickFrequency());
+    double fps = double(frame_num) / time;
+    std::cout << "fps:" << fps << std::endl;
+    cv::destroyAllWindows();
+
+    return 0;
+}
