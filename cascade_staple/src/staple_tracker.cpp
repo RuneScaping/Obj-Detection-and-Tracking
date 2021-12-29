@@ -672,3 +672,86 @@ void STAPLE_TRACKER::getScaleSubwindow(const cv::Mat &im, cv::Point_<float> cent
             h = sz.height;
             ch = temp.channels();
             total = w*h*ch;
+
+            OUTPUT = new float[cfg.num_scales*total*2](); // xxx
+        }
+
+        cv::Size tempsz = temp.size();
+        int tempw = tempsz.width;
+        int temph = tempsz.height;
+        int tempch = temp.channels();
+
+        int count = 0;
+
+        // window
+        for (int i = 0; i < tempw; i++)
+            for (int j = 0; j < temph; j++)
+                for (int k = 0; k < tempch; k++) {
+                    int off = j*tempw*ch+i*tempch+k;
+
+                    OUTPUT[(count*cfg.num_scales + s)*2 + 0] = ((float *)temp.data)[off] * scale_window.at<float>(s);
+                    OUTPUT[(count*cfg.num_scales + s)*2 + 1] = 0.0;
+                    count++;
+                }
+    }
+
+    output = cv::Mat(total, cfg.num_scales, CV_32FC2, OUTPUT).clone();
+
+    delete[] OUTPUT;
+}
+
+// TRAINING
+void STAPLE_TRACKER::tracker_staple_train(const cv::Mat &im, bool first)
+{
+    // extract patch of size bg_area and resize to norm_bg_area
+    cv::Mat im_patch_bg;
+    getSubwindow(im, pos, norm_bg_area, bg_area, im_patch_bg);
+
+    // compute feature map, of cf_response_size
+    cv::MatND xt;
+    getFeatureMap(im_patch_bg, cfg.feature_type, xt);
+
+    // apply Hann window in getFeatureMap
+    // xt = bsxfun(@times, hann_window, xt);
+
+    // compute FFT
+    // cv::MatND xtf;
+    std::vector<cv::Mat> xtsplit;
+    std::vector<cv::Mat> xtf; // xtf is splits of xtf
+
+    matsplit(xt, xtsplit);
+
+    for (int i =  0; i < xt.channels(); i++) {
+        cv::Mat dimf;
+        cv::dft(xtsplit[i], dimf);
+        xtf.push_back(dimf);
+    }
+
+    // FILTER UPDATE
+    // Compute expectations over circular shifts,
+    // therefore divide by number of pixels.
+    // new_hf_num = bsxfun(@times, conj(yf), xtf) / prod(p.cf_response_size);
+    // new_hf_den = (conj(xtf) .* xtf) / prod(p.cf_response_size);
+
+    {
+        std::vector<cv::Mat> new_hf_num;
+        std::vector<cv::Mat> new_hf_den;
+
+        cv::Size sz = xt.size();
+        int w = sz.width;
+        int h = sz.height;
+        float area = cf_response_size.width*cf_response_size.height;
+
+        float *DIM = new float[w*h*2];
+
+        for (int ch = 0; ch < xt.channels(); ch++) {
+            for (int i = 0; i < h; i++)
+                for (int j = 0; j < w; j++) {
+                    cv::Vec2f pXTF = xtf[ch].at<cv::Vec2f>(i,j);
+                    cv::Vec2f pYF = yf.at<cv::Vec2f>(i,j);
+
+                    DIM[i*w*2+j*2+0] = (pYF[1]*pXTF[1] + pYF[0]*pXTF[0]) / area;
+                    DIM[i*w*2+j*2+1] = (pYF[0]*pXTF[1] - pYF[1]*pXTF[0]) / area;
+                }
+
+            cv::Mat dim = cv::Mat(h, w, CV_32FC2, DIM).clone();
