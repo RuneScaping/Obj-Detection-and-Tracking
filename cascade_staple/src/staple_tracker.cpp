@@ -755,3 +755,89 @@ void STAPLE_TRACKER::tracker_staple_train(const cv::Mat &im, bool first)
                 }
 
             cv::Mat dim = cv::Mat(h, w, CV_32FC2, DIM).clone();
+
+            new_hf_num.push_back(dim);
+        }
+
+        delete[] DIM;
+
+        float *DIM1 = new float[w*h];
+
+        for (int ch = 0; ch < xt.channels(); ch++) {
+            for (int i = 0; i < h; i++)
+                for (int j = 0; j < w; j++) {
+                    cv::Vec2f pXTF = xtf[ch].at<cv::Vec2f>(i,j);
+
+                    DIM1[i*w+j] = (pXTF[0]*pXTF[0] + pXTF[1]*pXTF[1]) / area;
+                }
+
+            cv::Mat dim = cv::Mat(h, w, CV_32FC1, DIM1).clone();
+
+            new_hf_den.push_back(dim);
+        }
+
+        delete[] DIM1;
+
+        if (first) {
+            // first frame, train with a single image
+            hf_den.assign(new_hf_den.begin(), new_hf_den.end());
+            hf_num.assign(new_hf_num.begin(), new_hf_num.end());
+        } else {
+            // subsequent frames, update the model by linear interpolation
+            for (int ch =  0; ch < xt.channels(); ch++) {
+                hf_den[ch] = (1 - cfg.learning_rate_cf) * hf_den[ch] + cfg.learning_rate_cf * new_hf_den[ch];
+                hf_num[ch] = (1 - cfg.learning_rate_cf) * hf_num[ch] + cfg.learning_rate_cf * new_hf_num[ch];
+            }
+
+            updateHistModel(false, im_patch_bg, cfg.learning_rate_pwp);
+
+            // BG/FG MODEL UPDATE
+            // patch of the target + padding
+            // [bg_hist, fg_hist] = updateHistModel(new_pwp_model, im_patch_bg, bg_area, fg_area, target_sz, p.norm_bg_area, p.n_bins, p.grayscale_sequence, bg_hist, fg_hist, p.learning_rate_pwp);
+        }
+    }
+
+    // SCALE UPDATE
+    if (cfg.scale_adaptation) {
+        cv::Mat im_patch_scale;
+
+        getScaleSubwindow(im, pos, im_patch_scale);
+
+        cv::Mat xsf;
+        cv::dft(im_patch_scale, xsf, cv::DFT_ROWS);
+
+        // new_sf_num = bsxfun(@times, ysf, conj(xsf));
+        // new_sf_den = sum(xsf .* conj(xsf), 1);
+
+        cv::Mat new_sf_num;
+        cv::Mat new_sf_den;
+
+        cv::Size sz = xsf.size();
+        int w = sz.width;
+        int h = sz.height;
+
+        float *NEW_SF_NUM = new float[w*h*2];
+
+        for (int i = 0; i < h; i++) // xxx
+            for (int j = 0; j < w; j++) {
+                cv::Vec2f pXSF = xsf.at<cv::Vec2f>(i,j);
+                cv::Vec2f pYSF = ysf.at<cv::Vec2f>(j);
+
+                NEW_SF_NUM[i*w*2+j*2+0] = (pYSF[1]*pXSF[1] + pYSF[0]*pXSF[0]);
+                NEW_SF_NUM[i*w*2+j*2+1] = (pYSF[1]*pXSF[0] - pYSF[0]*pXSF[1]);
+            }
+
+        new_sf_num = cv::Mat(h, w, CV_32FC2, NEW_SF_NUM).clone();
+        delete[] NEW_SF_NUM;
+
+        float *NEW_SF_DEN = new float[w]();
+
+        for (int i = 0; i < h; i++)
+            for (int j = 0; j < w; j++) {
+                cv::Vec2f pXSF = xsf.at<cv::Vec2f>(i,j);
+
+                NEW_SF_DEN[j] += (pXSF[0]*pXSF[0] + pXSF[1]*pXSF[1]);
+            }
+
+        new_sf_den = cv::Mat(1, w, CV_32FC1, NEW_SF_DEN).clone();
+        delete[] NEW_SF_DEN;
