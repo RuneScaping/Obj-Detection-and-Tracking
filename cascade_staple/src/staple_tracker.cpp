@@ -841,3 +841,108 @@ void STAPLE_TRACKER::tracker_staple_train(const cv::Mat &im, bool first)
 
         new_sf_den = cv::Mat(1, w, CV_32FC1, NEW_SF_DEN).clone();
         delete[] NEW_SF_DEN;
+
+        if (first) {
+            // first frame, train with a single image
+            new_sf_den.copyTo(sf_den);
+            new_sf_num.copyTo(sf_num);
+        } else {
+            sf_den = (1 - cfg.learning_rate_scale) * sf_den + cfg.learning_rate_scale * new_sf_den;
+            sf_num = (1 - cfg.learning_rate_scale) * sf_num + cfg.learning_rate_scale * new_sf_num;
+        }
+    }
+
+    // update bbox position
+    if (first) {
+        rect_position.x = pos.x - target_sz.width/2;
+        rect_position.y = pos.y - target_sz.height/2;
+        rect_position.width = target_sz.width;
+        rect_position.height = target_sz.height;
+    }
+
+    frameno += 1;
+}
+
+// xxx: improve later
+cv::Mat ensure_real(const cv::Mat &complex)
+{
+    cv::Size sz = complex.size();
+    int w = sz.width;
+    int h = sz.height;
+    int cn = complex.channels();
+    float *REAL = new float[w*h];
+
+    for (int k = 0; k < cn; k++) {
+        int count = 0;
+
+        for (int i = 0; i < h; i++)
+            for (int j = 0; j < w; j++) {
+                cv::Vec2f p = complex.at<cv::Vec2f>(i, j); // by rows
+
+                REAL[count] = p[k];
+                count++;
+            }
+
+        break;
+    }
+
+    cv::Mat real = cv::Mat(h, w, CV_32FC1, REAL).clone();
+    delete[] REAL;
+
+    return real;
+}
+
+void STAPLE_TRACKER::cropFilterResponse(const cv::Mat &response_cf, cv::Size response_size, cv::Mat& output)
+{
+    cv::Size sz = response_cf.size();
+    int w = sz.width;
+    int h = sz.height;
+
+    // newh and neww must be odd, as we want an exact center
+    assert(((response_size.width % 2) == 1) && ((response_size.height % 2) == 1));
+
+    int half_width = floor(response_size.width / 2);
+    int half_height = floor(response_size.height / 2);
+
+    cv::Range i_range(-half_width, response_size.width - (1 + half_width));
+    cv::Range j_range(-half_height, response_size.height - (1 + half_height));
+
+    std::vector<int> i_mod_range, j_mod_range;
+
+    for (int k = i_range.start; k <= i_range.end; k++) {
+        int val = (k - 1 + w) % w;
+        i_mod_range.push_back(val);
+    }
+
+    for (int k = j_range.start; k <= j_range.end; k++) {
+        int val = (k - 1 + h) % h;
+        j_mod_range.push_back(val);
+    }
+
+    float *OUTPUT = new float[response_size.width*response_size.height];
+
+    for (int i = 0; i < response_size.width; i++)
+        for (int j = 0; j < response_size.height; j++) {
+            int i_idx = i_mod_range[i];
+            int j_idx = j_mod_range[j];
+
+            assert((i_idx < w) && (j_idx < h));
+
+            OUTPUT[j*response_size.width+i] = response_cf.at<float>(j_idx,i_idx);
+        }
+
+    output = cv::Mat(response_size.height, response_size.width, CV_32FC1, OUTPUT).clone();
+    delete[] OUTPUT;
+}
+
+// GETCOLOURMAP computes pixel-wise probabilities (PwP) given PATCH and models BG_HIST and FG_HIST
+void STAPLE_TRACKER::getColourMap(const cv::Mat &patch, cv::Mat& output)
+{
+    // check whether the patch has 3 channels
+    cv::Size sz = patch.size();
+    int h = sz.height;
+    int w = sz.width;
+    //int d = patch.channels();
+
+    // figure out which bin each pixel falls into
+    int bin_width = 256 / cfg.n_bins;
