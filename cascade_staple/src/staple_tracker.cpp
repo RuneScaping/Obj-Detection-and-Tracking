@@ -946,3 +946,78 @@ void STAPLE_TRACKER::getColourMap(const cv::Mat &patch, cv::Mat& output)
 
     // figure out which bin each pixel falls into
     int bin_width = 256 / cfg.n_bins;
+
+    // convert image to d channels array
+    //patch_array = reshape(double(patch), w*h, d);
+
+    float probg;
+    float profg;
+    float *P_O = new float[w*h];
+
+    for (int i = 0; i < w; i++)
+        for (int j = 0; j < h; j++) {
+            if (!cfg.grayscale_sequence) {
+                cv::Vec3b p = patch.at<cv::Vec3b>(j,i);
+
+                int b1 = floor(p[0] / bin_width);
+                int b2 = floor(p[1] / bin_width);
+                int b3 = floor(p[2] / bin_width);
+
+                float* histd;
+
+                histd = (float*)bg_hist.data;
+                probg = histd[b1*cfg.n_bins*cfg.n_bins + b2*cfg.n_bins + b3];
+
+                histd = (float*)fg_hist.data;
+                profg = histd[b1*cfg.n_bins*cfg.n_bins + b2*cfg.n_bins + b3];
+
+                // xxx
+                P_O[j*w+i] = profg / (profg + probg);
+
+                std::isnan(P_O[j*w+i]) && (P_O[j*w+i] = 0.0);
+
+                // (TODO) in theory it should be at 0.5 (unseen colors shoud have max entropy)
+                //likelihood_map(isnan(likelihood_map)) = 0;
+            } else {
+                int b = patch.at<uchar>(j,i);
+
+                float* histd;
+
+                histd = (float*)bg_hist.data;
+                probg = histd[b];
+
+                histd = (float*)fg_hist.data;
+                profg = histd[b];
+
+                // xxx
+                P_O[j*w+i] = profg / (profg + probg);
+
+                std::isnan(P_O[j*w+i]) && (P_O[j*w+i] = 0.0);
+
+                // (TODO) in theory it should be at 0.5 (unseen colors shoud have max entropy)
+                //likelihood_map(isnan(likelihood_map)) = 0;
+            }
+        }
+
+    // to which bin each pixel (for all d channels) belongs to
+    //bin_indices = floor(patch_array/bin_width) + 1;
+
+    // Get pixel-wise posteriors (PwP)
+    // P_bg = getP(bg_hist, h, w, bin_indices, grayscale_sequence);
+    // P_fg = getP(fg_hist, h, w, bin_indices, grayscale_sequence);
+
+    // Object-likelihood map
+    //P_O = P_fg ./ (P_fg + P_bg);
+
+    output = cv::Mat(h, w, CV_32FC1, P_O).clone();
+    delete[] P_O;
+}
+
+// GETCENTERLIKELIHOOD computes the sum over rectangles of size M.
+void STAPLE_TRACKER::getCenterLikelihood(const cv::Mat &object_likelihood, cv::Size m, cv::Mat& center_likelihood)
+{
+    // CENTER_LIKELIHOOD is the 'colour response'
+    cv::Size sz = object_likelihood.size();
+    int h = sz.height;
+    int w = sz.width;
+    int n1 = w - m.width + 1;
