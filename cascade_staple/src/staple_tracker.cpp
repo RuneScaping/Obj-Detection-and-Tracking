@@ -1021,3 +1021,95 @@ void STAPLE_TRACKER::getCenterLikelihood(const cv::Mat &object_likelihood, cv::S
     int h = sz.height;
     int w = sz.width;
     int n1 = w - m.width + 1;
+    int n2 = h - m.height + 1;
+    int area = m.width * m.height;
+
+    cv::Mat temp;
+
+    // integral images
+    cv::integral(object_likelihood, temp);
+
+    float *CENTER_LIKELIHOOD = new float[n1*n2];
+
+    for (int i = 0; i < n1; i++)
+        for (int j = 0; j < n2; j++) {
+            CENTER_LIKELIHOOD[j*n1 + i]
+                = (temp.at<double>(j, i) + temp.at<double>(j+m.height, i+m.width) - temp.at<double>(j, i+m.width) - temp.at<double>(j+m.height, i)) / area;
+        }
+
+    // SAT = integralImage(object_likelihood);
+    // i = 1:n1;
+    // j = 1:n2;
+    // center_likelihood = (SAT(i,j) + SAT(i+m(1), j+m(2)) - SAT(i+m(1), j) - SAT(i, j+m(2))) / prod(m);
+
+    center_likelihood = cv::Mat(n2, n1, CV_32FC1, CENTER_LIKELIHOOD).clone();
+    delete[] CENTER_LIKELIHOOD;
+}
+
+void STAPLE_TRACKER::mergeResponses(const cv::Mat &response_cf, const cv::Mat &response_pwp, cv::Mat &response)
+{
+    double alpha = cfg.merge_factor;
+    //const char *merge_method = cfg.merge_method;
+
+    // MERGERESPONSES interpolates the two responses with the hyperparameter ALPHA
+    response = (1 - alpha) * response_cf + alpha * response_pwp;
+
+    // response = (1 - alpha) * response_cf + alpha * response_pwp;
+}
+
+// TESTING step
+cv::Rect STAPLE_TRACKER::tracker_staple_update(const cv::Mat &im)
+{
+    // extract patch of size bg_area and resize to norm_bg_area
+    cv::Mat im_patch_cf;
+    getSubwindow(im, pos, norm_bg_area, bg_area, im_patch_cf);
+
+    cv::Size pwp_search_area;
+
+    pwp_search_area.width = round(norm_pwp_search_area.width / area_resize_factor);
+    pwp_search_area.height = round(norm_pwp_search_area.height / area_resize_factor);
+
+    // extract patch of size pwp_search_area and resize to norm_pwp_search_area
+    getSubwindow(im, pos, norm_pwp_search_area, pwp_search_area, im_patch_pwp);
+
+    // compute feature map
+    cv::MatND xt_windowed;
+    getFeatureMap(im_patch_cf, cfg.feature_type, xt_windowed);
+
+    // apply Hann window in getFeatureMap
+
+    // compute FFT
+    // cv::MatND xtf;
+    std::vector<cv::Mat> xtsplit;
+    std::vector<cv::Mat> xtf; // xtf is splits of xtf
+
+    matsplit(xt_windowed, xtsplit);
+
+    for (int i =  0; i < xt_windowed.channels(); i++) {
+        cv::Mat dimf;
+        cv::dft(xtsplit[i], dimf);
+        xtf.push_back(dimf);
+    }
+
+    std::vector<cv::Mat> hf;
+    cv::Size sz = xt_windowed.size();
+    int w = sz.width;
+    int h = sz.height;
+
+    // Correlation between filter and test patch gives the response
+    // Solve diagonal system per pixel.
+    if (cfg.den_per_channel) {
+        float *DIM = new float[w*h*2];
+
+        for (int ch = 0; ch < xt_windowed.channels(); ch++) {
+            for (int i = 0; i < w; i++)
+                for (int j = 0; j < h; j++) {
+                    cv::Vec2f p = hf_num[ch].at<cv::Vec2f>(j,i);
+
+                    DIM[j*w*2+i*2+0] = p[0] / (hf_den[ch].at<float>(j,i) + cfg.lambda);
+                    DIM[j*w*2+i*2+1] = p[1] / (hf_den[ch].at<float>(j,i) + cfg.lambda);
+                }
+
+            cv::Mat dim = cv::Mat(h, w, CV_32FC2, DIM).clone();
+
+            hf.push_back(dim);
