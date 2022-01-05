@@ -10,4 +10,6 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 
 find_package(OpenCV REQUIRED)
 
-message(STATUS "OpenCV library 
+message(STATUS "OpenCV library status:")
+message(STATUS "    version: ${OpenCV_VERSION}")
+message(STATUS
