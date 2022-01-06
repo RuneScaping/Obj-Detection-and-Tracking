@@ -23,4 +23,8 @@ endif()
 file(GLOB SRCS ./src/*.cpp)
 file(GLOB HDRS ./src/*.h*)
 
-set(traincascade_files ${
+set(traincascade_files ${SRCS} ${HDRS})
+
+add_executable(fuck ${traincascade_files})
+
+target_link_libra
