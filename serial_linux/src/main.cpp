@@ -12,3 +12,10 @@ int main(int argc, char * argv[])
 
     string buff = "Hello!";
     sel.writeData(buff.data(), buff.length());
+
+    char buff2[64];
+    sel.readData(buff2);
+
+    return 0;
+}
+
