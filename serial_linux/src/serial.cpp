@@ -145,3 +145,56 @@ bool Serial::setPara(int speed, int databits, int stopbits, int parity)
 /**
  * @brief   设置串口通信速率/波特率
  * @param   speed  类型 int  串口速度/波特率
+ * @return  bool
+ */
+bool Serial::setBaudRate(int speed)
+{
+    int   i;
+    int   status;
+    struct termios   Opt;
+    tcgetattr(fd, &Opt);
+    for ( i= 0;  i < sizeof(speed_arr) / sizeof(int);  i++)
+    {
+        if  (speed == name_arr[i])
+        {
+            tcflush(fd, TCIOFLUSH);
+            cfsetispeed(&Opt, speed_arr[i]);
+            cfsetospeed(&Opt, speed_arr[i]);
+            status = tcsetattr(fd, TCSANOW, &Opt);
+            if  (status != 0)
+            {
+                perror("tcsetattr fd1");
+                return false;
+            }
+            tcflush(fd,TCIOFLUSH);
+        }
+    }
+    return true;
+}
+
+/**
+ * @brief   写数据
+ * @param   data        类型 const char *     字符串
+ * @param   datalength  类型  int             字符串长度
+ * @return  int 写入字符串的长度
+ */
+int Serial::writeData(const char *data, int datalength)
+{
+    int nwrite;
+    nwrite = write(fd, data, datalength);
+    return nwrite;
+}
+
+/**
+ * @brief   读数据
+ * @param   data        类型  char *     字符串
+ * @param   datalength  类型  int       字符串长度
+ * @return  int 读出字符串的长度
+ */
+int Serial::readData(char *data, int datalength)
+{
+    int nread;
+    nread = read(fd, data, 5);
+    data[nread] = '\0';
+    return nread;
+}
