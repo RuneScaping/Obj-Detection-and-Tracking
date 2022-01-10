@@ -4,4 +4,8 @@
 #include  <stdlib.h>
 #include  <unistd.h>
 #include  <sys/types.h>
-#incl
+#include  <sys/signal.h>
+#include  <sys/stat.h>
+#include  <fcntl.h>
+#include  <termios.h>
+#include  <
