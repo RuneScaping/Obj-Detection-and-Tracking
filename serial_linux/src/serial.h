@@ -19,4 +19,5 @@ public:
     Serial(char *dev);
     ~Serial();
     void delay(int sec);
-    bool setPara(int spee
+    bool setPara(int speed = 9600, int databits = 8, int stopbits = 1, int parity = 'N');
+    bool setBaudRate(int 
