@@ -20,4 +20,6 @@ public:
     ~Serial();
     void delay(int sec);
     bool setPara(int speed = 9600, int databits = 8, int stopbits = 1, int parity = 'N');
-    bool setBaudRate(int 
+    bool setBaudRate(int speed);
+    int writeData(const char *data, int datalength);
+    int readData(char *data, int da
