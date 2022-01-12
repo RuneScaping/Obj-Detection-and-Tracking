@@ -16,3 +16,7 @@ using namespace std;
 class Serial
 {
 public:
+    Serial(char *dev);
+    ~Serial();
+    void delay(int sec);
+    bool setPara(int spee
