@@ -8,4 +8,11 @@
 #include  <sys/stat.h>
 #include  <fcntl.h>
 #include  <termios.h>
-#include  <
+#include  <errno.h>
+#include  <limits.h>
+#include  <string>
+using namespace std;
+
+class Serial
+{
+public:
