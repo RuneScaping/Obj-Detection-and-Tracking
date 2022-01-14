@@ -22,4 +22,8 @@ public:
     bool setPara(int speed = 9600, int databits = 8, int stopbits = 1, int parity = 'N');
     bool setBaudRate(int speed);
     int writeData(const char *data, int datalength);
-    int readData(char *data, int da
+    int readData(char *data, int datalength = 64);
+
+private:
+    int fd;
+    int speed_arr[14] = { B115200, B19200, B9600
