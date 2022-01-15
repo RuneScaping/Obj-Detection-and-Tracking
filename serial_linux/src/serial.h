@@ -26,4 +26,5 @@ public:
 
 private:
     int fd;
-    int speed_arr[14] = { B115200, B19200, B9600
+    int speed_arr[14] = { B115200, B19200, B9600, B4800, B2400, B1200, B300,
+                          B115200, B19200, B9600, B4800, B2400, B1200, B
