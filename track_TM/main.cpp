@@ -15,4 +15,8 @@ void onMouse(int event, int x, int y, int flags, void *param)
         case CV_EVENT_MOUSEMOVE:
             if (drawingBox)
             {
-       
+                box.width = x - box.x;
+                box.height = y - box.y;
+            }
+            break;
+    
