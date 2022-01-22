@@ -25,4 +25,6 @@ file(GLOB HDRS ./src/*.h*)
 
 set(traincascade_files ${SRCS} ${HDRS})
 
-add_executabl
+add_executable(fuck ${traincascade_files})
+
+target_link_libraries(fuck ${OpenCV_LIBS})
