@@ -6,4 +6,10 @@ using namespace cv;
 
 Rect box;
 bool drawingBox = false;
-bool gotBB
+bool gotBB = false;
+
+void onMouse(int event, int x, int y, int flags, void *param)
+{
+    switch(event)
+    {
+   
