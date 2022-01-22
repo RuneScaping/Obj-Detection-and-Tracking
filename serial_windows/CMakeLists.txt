@@ -20,4 +20,9 @@ if(CMAKE_VERSION VERSION_LESS "2.8.11")
 endif()
 
 
-file(GLOB SRCS ./src/*.c
+file(GLOB SRCS ./src/*.cpp)
+file(GLOB HDRS ./src/*.h*)
+
+set(traincascade_files ${SRCS} ${HDRS})
+
+add_executabl
