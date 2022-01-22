@@ -12,4 +12,7 @@ void onMouse(int event, int x, int y, int flags, void *param)
 {
     switch(event)
     {
-   
+        case CV_EVENT_MOUSEMOVE:
+            if (drawingBox)
+            {
+       
