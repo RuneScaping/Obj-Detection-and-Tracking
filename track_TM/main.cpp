@@ -19,4 +19,6 @@ void onMouse(int event, int x, int y, int flags, void *param)
                 box.height = y - box.y;
             }
             break;
-    
+        case CV_EVENT_LBUTTONDOWN:
+            drawingBox = true;
+            box = Rect(x, y, 0, 0)
