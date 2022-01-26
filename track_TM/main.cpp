@@ -21,4 +21,7 @@ void onMouse(int event, int x, int y, int flags, void *param)
             break;
         case CV_EVENT_LBUTTONDOWN:
             drawingBox = true;
-            box = Rect(x, y, 0, 0)
+            box = Rect(x, y, 0, 0);
+            break;
+        case CV_EVENT_LBUTTONUP:
+            drawing
