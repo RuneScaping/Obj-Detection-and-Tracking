@@ -32,4 +32,7 @@ void onMouse(int event, int x, int y, int flags, void *param)
             }
             if(box.height < 0)
             {
-           
+                box.y += box.height;
+                box.height *= -1;
+            }
+            gotBB = 
