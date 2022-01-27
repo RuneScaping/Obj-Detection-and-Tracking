@@ -24,4 +24,8 @@ void onMouse(int event, int x, int y, int flags, void *param)
             box = Rect(x, y, 0, 0);
             break;
         case CV_EVENT_LBUTTONUP:
-            drawing
+            drawingBox = false;
+            if(box.width < 0)
+            {
+                box.x +=box.width;
+            
