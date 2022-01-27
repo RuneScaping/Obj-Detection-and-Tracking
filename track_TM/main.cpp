@@ -28,4 +28,8 @@ void onMouse(int event, int x, int y, int flags, void *param)
             if(box.width < 0)
             {
                 box.x +=box.width;
-            
+                box.width *= -1;
+            }
+            if(box.height < 0)
+            {
+           
