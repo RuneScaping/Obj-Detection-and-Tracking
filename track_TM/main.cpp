@@ -35,4 +35,12 @@ void onMouse(int event, int x, int y, int flags, void *param)
                 box.y += box.height;
                 box.height *= -1;
             }
-            gotBB = 
+            gotBB = true;
+            break;
+    }
+}
+
+int main(int argc, char * argv[])
+{
+    Template tracker;
+    /
