@@ -43,4 +43,6 @@ void onMouse(int event, int x, int y, int flags, void *param)
 int main(int argc, char * argv[])
 {
     Template tracker;
-    /
+    //cout << "C++11 : " << to_string(2333) << endl;
+    VideoCapture capture;
+    capt
