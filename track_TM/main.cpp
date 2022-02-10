@@ -45,4 +45,8 @@ int main(int argc, char * argv[])
     Template tracker;
     //cout << "C++11 : " << to_string(2333) << endl;
     VideoCapture capture;
-    capt
+    capture.open(0);
+
+    if(!capture.isOpened())
+    {
+        cout << "capture device fail
