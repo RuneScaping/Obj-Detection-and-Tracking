@@ -49,4 +49,7 @@ int main(int argc, char * argv[])
 
     if(!capture.isOpened())
     {
-        cout << "capture device fail
+        cout << "capture device failed to open!" << endl;
+        return -1;
+    }
+    cvNamedWindow("Tracker", CV_WIND
