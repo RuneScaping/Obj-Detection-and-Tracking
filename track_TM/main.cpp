@@ -52,4 +52,8 @@ int main(int argc, char * argv[])
         cout << "capture device failed to open!" << endl;
         return -1;
     }
-    cvNamedWindow("Tracker", CV_WIND
+    cvNamedWindow("Tracker", CV_WINDOW_AUTOSIZE);
+    cvSetMouseCallback("Tracker", onMouse, NULL);
+
+    Mat frame;
+    capture >> fram
