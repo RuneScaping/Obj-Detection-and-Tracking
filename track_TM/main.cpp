@@ -56,4 +56,10 @@ int main(int argc, char * argv[])
     cvSetMouseCallback("Tracker", onMouse, NULL);
 
     Mat frame;
-    capture >> fram
+    capture >> frame;
+    while (!gotBB)
+    {
+        capture >> frame;
+
+        imshow("Tracker", frame);
+        if (cvWaitK
