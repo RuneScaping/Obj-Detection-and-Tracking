@@ -62,4 +62,7 @@ int main(int argc, char * argv[])
         capture >> frame;
 
         imshow("Tracker", frame);
-        if (cvWaitK
+        if (cvWaitKey(300) == 'q')
+            return 1;
+    }
+    cvSetMouseCallback("Tracker", N
