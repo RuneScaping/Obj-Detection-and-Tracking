@@ -76,4 +76,9 @@ int main(int argc, char * argv[])
     {
         capture >> frame;
         if (frame.empty())
-            return
+            return -1;
+        frameCount++;
+
+        t.start();
+        // tracking
+        bo
