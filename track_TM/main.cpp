@@ -88,4 +88,8 @@ int main(int argc, char * argv[])
         buf << frameCount;
         string num = buf.str();
         putText(frame, num, Point(20, 20), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255), 3);
-        rectangle(frame, box, Scalar(0, 0, 255),
+        rectangle(frame, box, Scalar(0, 0, 255), 3);
+        
+        t.stop();
+        imshow("Tracker", frame);
+        char c = waitKey(10);
