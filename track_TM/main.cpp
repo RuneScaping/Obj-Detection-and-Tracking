@@ -70,4 +70,10 @@ int main(int argc, char * argv[])
     tracker.initTracking(frame, box, 10);
 
     TickMeter t;
-    int frameCount
+    int frameCount = 0;
+
+    while (1)
+    {
+        capture >> frame;
+        if (frame.empty())
+            return
