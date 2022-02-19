@@ -65,4 +65,9 @@ int main(int argc, char * argv[])
         if (cvWaitKey(300) == 'q')
             return 1;
     }
-    cvSetMouseCallback("Tracker", N
+    cvSetMouseCallback("Tracker", NULL, NULL);
+
+    tracker.initTracking(frame, box, 10);
+
+    TickMeter t;
+    int frameCount
