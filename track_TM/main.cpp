@@ -87,4 +87,5 @@ int main(int argc, char * argv[])
         stringstream buf;
         buf << frameCount;
         string num = buf.str();
-        putText(frame, num, Point(20, 20), FO
+        putText(frame, num, Point(20, 20), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 255), 3);
+        rectangle(frame, box, Scalar(0, 0, 255),
