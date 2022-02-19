@@ -85,4 +85,6 @@ int main(int argc, char * argv[])
 
         // show
         stringstream buf;
-        buf << fram
+        buf << frameCount;
+        string num = buf.str();
+        putText(frame, num, Point(20, 20), FO
