@@ -98,3 +98,7 @@ int main(int argc, char * argv[])
     }
 
     double fps = t.getCounter() / t.getTimeSec();
+    cout << "Average fps: " << fps << endl;
+
+    return 0;
+}
