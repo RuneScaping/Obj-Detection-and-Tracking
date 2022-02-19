@@ -93,3 +93,8 @@ int main(int argc, char * argv[])
         t.stop();
         imshow("Tracker", frame);
         char c = waitKey(10);
+        if (c == 27)
+            break;
+    }
+
+    double fps = t.getCounter() / t.getTimeSec();
