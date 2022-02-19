@@ -81,4 +81,8 @@ int main(int argc, char * argv[])
 
         t.start();
         // tracking
-        bo
+        box = tracker.track(frame);
+
+        // show
+        stringstream buf;
+        buf << fram
