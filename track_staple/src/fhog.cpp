@@ -501,3 +501,87 @@ void fhog(cv::MatND &fhog_feature, const cv::Mat& input, int binSize, int nOrien
 
     int h,w,d;
     float* HH = fhog(M,O,HEIGHT,WIDTH,DEPTH,&h,&w,&d,binSize,nOrients,clip,crop);
+    float* H = new float[w*h*d];
+
+    for(int i = 0;i < w; i++)
+        for(int j = 0;j < h; j++)
+            for(int k = 0;k < d; k++)
+                //H[i*h*d+j*d+k] = HH[k*w*h+i*h+j]; // ->hwd
+                H[j*w*d+i*d+k] = HH[k*w*h+i*h+j]; // ->whd
+
+    fhog_feature = cv::MatND(h,w,CV_32FC(32),H).clone();
+
+    delete[] H;
+
+    delete[] M; delete[] O;
+    delete[] II;delete[] I;delete[] HH;
+}
+
+void fhog28(cv::MatND &fhog_feature, const cv::Mat& input, int binSize, int nOrients, float clip, bool crop) {
+    int HEIGHT = input.rows;
+    int WIDTH = input.cols;
+    int DEPTH = input.channels();
+
+    float *II = new float[WIDTH*HEIGHT*DEPTH];
+    int count=0;
+
+    // MatLab:: RGB, OpenCV: BGR
+
+    for (int i = 0; i < WIDTH; i++) {
+        for (int j = 0; j < HEIGHT; j++) {
+            cv::Vec3b p = input.at<cv::Vec3b>(j,i);
+            II[count+2] = p[0]; // B->R
+            II[count+1] = p[1]; // G->G
+            II[count+0] = p[2]; // R->B
+            count += 3;
+        }
+    }
+
+    float *I = new float[HEIGHT*WIDTH*DEPTH];
+
+    // channel x width x height
+    for (int i = 0; i < WIDTH; i++) {
+        for (int j = 0; j < HEIGHT; j++) {
+            for (int k = 0; k < DEPTH; k++) {
+                I[k*WIDTH*HEIGHT+i*HEIGHT+j] = II[i*HEIGHT*DEPTH+j*DEPTH+k];
+            }
+        }
+    }
+
+    float *M = new float[HEIGHT*WIDTH], *O = new float[HEIGHT*WIDTH];
+    gradMag(I, M, O, HEIGHT, WIDTH, DEPTH, true);
+
+    int h,w,d;
+    float* HH = fhog(M,O,HEIGHT,WIDTH,DEPTH,&h,&w,&d,binSize,nOrients,clip,crop);
+
+    #undef CHANNELS
+    #define CHANNELS 28
+
+    assert(d >= CHANNELS);
+
+    // out = zeros(h, w, 28, 'single');
+    // out(:,:,2:28) = temp(:,:,1:27);
+
+    float* H = new float[w*h*CHANNELS];
+
+    for(int i = 0;i < w; i++)
+        for(int j = 0;j < h; j++) {
+            //H[i*h*CHANNELS+j*CHANNELS+0] = 0.0;
+            H[j*w*CHANNELS+i*CHANNELS+0] = 0.0;
+            for(int k = 0;k < CHANNELS-1;k++) {
+                //H[i*h*CHANNELS+j*CHANNELS+k+1] = HH[k*w*h+i*h+j]; // ->hwd
+                H[j*w*CHANNELS+i*CHANNELS+k+1] = HH[k*w*h+i*h+j]; // ->whd
+            }
+        }
+
+    fhog_feature = cv::MatND(h,w,CV_32FC(CHANNELS),H).clone();
+
+    delete[] H;
+
+    delete[] M; delete[] O;
+    delete[] II;delete[] I;delete[] HH;
+}
+
+void fhog31(cv::MatND &fhog_feature, const cv::Mat& input, int binSize, int nOrients, float clip, bool crop) {
+    int HEIGHT = input.rows;
+    int WIDTH = input.cols;
