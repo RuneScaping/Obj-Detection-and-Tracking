@@ -9,4 +9,8 @@
 
 namespace sse{
 
-#define R
+#define RETf inline __m128
+#define RETi inline __m128i
+
+// set, load and store values
+RETf SET( con
