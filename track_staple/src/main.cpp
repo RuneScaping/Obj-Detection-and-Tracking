@@ -72,3 +72,52 @@ int main(int argc, char * argv[])
 
         imshow("Tracker", image);
         if (cvWaitKey(10) == 'q')
+            return 1;
+    }
+    cvSetMouseCallback("Tracker", NULL, NULL);
+
+
+    STAPLE_TRACKER staple;
+
+    cv::Rect_<float> location;
+    location = box;
+    staple.tracker_staple_initialize(image, location);
+    staple.tracker_staple_train(image, true);
+
+    std::vector<cv::Rect_<float>> result_rects;
+    int64 tic, toc;
+    double time = 0;
+    bool show_visualization = true;
+
+    int frame = 0;
+    while(true)
+    {
+        if(!capture.read(image))
+            break;
+
+        tic = cv::getTickCount();
+        location = staple.tracker_staple_update(image);
+        staple.tracker_staple_train(image, false);
+        toc = cv::getTickCount() - tic;
+        time += toc;
+        result_rects.push_back(location);
+
+        if (show_visualization) {
+            cv::putText(image, std::to_string(frame++ + 1), cv::Point(20, 40), 6, 1,
+                cv::Scalar(0, 255, 255), 2);
+            cv::rectangle(image, location, cv::Scalar(0, 128, 255), 2);
+            cv::imshow("STAPLE", image);
+
+            char key = cv::waitKey(10);
+            if (key == 27 || key == 'q' || key == 'Q')
+                break;
+        }
+    }
+
+    time = time / double(cv::getTickFrequency());
+    double fps = double(result_rects.size()) / time;
+    std::cout << "fps:" << fps << std::endl;
+    cv::destroyAllWindows();
+
+    return 0;
+}
