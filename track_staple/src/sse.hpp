@@ -13,4 +13,5 @@ namespace sse{
 #define RETi inline __m128i
 
 // set, load and store values
-RETf SET( con
+RETf SET( const float &x ) { return _mm_set1_ps(x); }
+RETf SET( float x, float y, float z, float w ) { return 
