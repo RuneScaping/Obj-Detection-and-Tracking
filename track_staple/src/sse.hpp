@@ -14,4 +14,6 @@ namespace sse{
 
 // set, load and store values
 RETf SET( const float &x ) { return _mm_set1_ps(x); }
-RETf SET( float x, float y, float z, float w ) { return 
+RETf SET( float x, float y, float z, float w ) { return _mm_set_ps(x,y,z,w); }
+RETi SET( const int &x ) { return _mm_set1_epi32(x); }
+RETf LD( cons
