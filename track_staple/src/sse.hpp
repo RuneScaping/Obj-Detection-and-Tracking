@@ -17,4 +17,6 @@ RETf SET( const float &x ) { return _mm_set1_ps(x); }
 RETf SET( float x, float y, float z, float w ) { return _mm_set_ps(x,y,z,w); }
 RETi SET( const int &x ) { return _mm_set1_epi32(x); }
 RETf LD( const float &x ) { return _mm_load_ps(&x); }
-RETf LDu( const float &x ) { return _mm_loadu_ps
+RETf LDu( const float &x ) { return _mm_loadu_ps(&x); }
+RETf STR( float &x, const __m128 y ) { _mm_store_ps(&x,y); return y; }
+RETf STR1( float
