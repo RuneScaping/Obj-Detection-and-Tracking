@@ -20,4 +20,5 @@ RETf LD( const float &x ) { return _mm_load_ps(&x); }
 RETf LDu( const float &x ) { return _mm_loadu_ps(&x); }
 RETf STR( float &x, const __m128 y ) { _mm_store_ps(&x,y); return y; }
 RETf STR1( float &x, const __m128 y ) { _mm_store_ss(&x,y); return y; }
-RETf STRu( float &x, const __m128 y ) { _mm_s
+RETf STRu( float &x, const __m128 y ) { _mm_storeu_ps(&x,y); return y; }
+RETf STR( float &x, const float y ) { return
