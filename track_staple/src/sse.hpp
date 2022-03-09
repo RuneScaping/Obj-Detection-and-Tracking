@@ -21,4 +21,7 @@ RETf LDu( const float &x ) { return _mm_loadu_ps(&x); }
 RETf STR( float &x, const __m128 y ) { _mm_store_ps(&x,y); return y; }
 RETf STR1( float &x, const __m128 y ) { _mm_store_ss(&x,y); return y; }
 RETf STRu( float &x, const __m128 y ) { _mm_storeu_ps(&x,y); return y; }
-RETf STR( float &x, const float y ) { return
+RETf STR( float &x, const float y ) { return STR(x,SET(y)); }
+
+// arithmetic operators
+RETi ADD( const __m128i x, const __m128i y ) {
