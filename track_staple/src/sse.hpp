@@ -28,4 +28,5 @@ RETi ADD( const __m128i x, const __m128i y ) { return _mm_add_epi32(x,y); }
 RETf ADD( const __m128 x, const __m128 y ) { return _mm_add_ps(x,y); }
 RETf ADD( const __m128 x, const __m128 y, const __m128 z ) {
   return ADD(ADD(x,y),z); }
-RETf 
+RETf ADD( const __m128 a, const __m128 b, const __m128 c, const __m128 &d ) {
+  return ADD(ADD(ADD(
