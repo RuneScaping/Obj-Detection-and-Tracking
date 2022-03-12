@@ -26,4 +26,6 @@ RETf STR( float &x, const float y ) { return STR(x,SET(y)); }
 // arithmetic operators
 RETi ADD( const __m128i x, const __m128i y ) { return _mm_add_epi32(x,y); }
 RETf ADD( const __m128 x, const __m128 y ) { return _mm_add_ps(x,y); }
-RETf ADD(
+RETf ADD( const __m128 x, const __m128 y, const __m128 z ) {
+  return ADD(ADD(x,y),z); }
+RETf 
