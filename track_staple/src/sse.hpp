@@ -31,4 +31,5 @@ RETf ADD( const __m128 x, const __m128 y, const __m128 z ) {
 RETf ADD( const __m128 a, const __m128 b, const __m128 c, const __m128 &d ) {
   return ADD(ADD(ADD(a,b),c),d); }
 RETf SUB( const __m128 x, const __m128 y ) { return _mm_sub_ps(x,y); }
-RET
+RETf MUL( const __m128 x, const __m128 y ) { return _mm_mul_ps(x,y); }
+RETf MUL( const __m128 x, const float
