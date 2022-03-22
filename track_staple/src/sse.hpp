@@ -34,4 +34,5 @@ RETf SUB( const __m128 x, const __m128 y ) { return _mm_sub_ps(x,y); }
 RETf MUL( const __m128 x, const __m128 y ) { return _mm_mul_ps(x,y); }
 RETf MUL( const __m128 x, const float y ) { return MUL(x,SET(y)); }
 RETf MUL( const float x, const __m128 y ) { return MUL(SET(x),y); }
-RETf INC( __m128 &x, co
+RETf INC( __m128 &x, const __m128 y ) { return x = ADD(x,y); }
+RETf INC( float &x, const __m128 y ) { __m128
