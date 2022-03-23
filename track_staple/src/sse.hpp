@@ -47,4 +47,7 @@ RETf AND( const __m128 x, const __m128 y ) { return _mm_and_ps(x,y); }
 RETi AND( const __m128i x, const __m128i y ) { return _mm_and_si128(x,y); }
 RETf ANDNOT( const __m128 x, const __m128 y ) { return _mm_andnot_ps(x,y); }
 RETf OR( const __m128 x, const __m128 y ) { return _mm_or_ps(x,y); }
-RETf XOR( const __m128 x, c
+RETf XOR( const __m128 x, const __m128 y ) { return _mm_xor_ps(x,y); }
+
+// comparison operators
+RETf CMPGT( const __m128 x,
