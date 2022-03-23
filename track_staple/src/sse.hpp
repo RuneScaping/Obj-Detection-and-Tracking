@@ -41,3 +41,6 @@ RETf DEC( float &x, const __m128 y ) { __m128 t=SUB(LD(x),y); return STR(x,t); }
 RETf MIN( const __m128 x, const __m128 y ) { return _mm_min_ps(x,y); }
 RETf RCP( const __m128 x ) { return _mm_rcp_ps(x); }
 RETf RCPSQRT( const __m128 x ) { return _mm_rsqrt_ps(x); }
+
+// logical operators
+RETf AND( const __m128 x, const __m128 y ) { return _mm_
