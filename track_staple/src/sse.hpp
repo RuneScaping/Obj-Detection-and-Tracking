@@ -43,4 +43,5 @@ RETf RCP( const __m128 x ) { return _mm_rcp_ps(x); }
 RETf RCPSQRT( const __m128 x ) { return _mm_rsqrt_ps(x); }
 
 // logical operators
-RETf AND( const __m128 x, const __m128 y ) { return _mm_
+RETf AND( const __m128 x, const __m128 y ) { return _mm_and_ps(x,y); }
+RETi AND( const __m128i x, const __m128i y ) { return _mm_and_si128(x,y); }
