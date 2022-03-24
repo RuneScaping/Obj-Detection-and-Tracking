@@ -50,4 +50,5 @@ RETf OR( const __m128 x, const __m128 y ) { return _mm_or_ps(x,y); }
 RETf XOR( const __m128 x, const __m128 y ) { return _mm_xor_ps(x,y); }
 
 // comparison operators
-RETf CMPGT( const __m128 x,
+RETf CMPGT( const __m128 x, const __m128 y ) { return _mm_cmpgt_ps(x,y); }
+RETf CMPLT( const __m128 x,
