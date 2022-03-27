@@ -56,4 +56,11 @@ RETi CMPGT( const __m128i x, const __m128i y ) { return _mm_cmpgt_epi32(x,y); }
 RETi CMPLT( const __m128i x, const __m128i y ) { return _mm_cmplt_epi32(x,y); }
 
 // conversion operators
-RETf CVT( const __m128i x ) { return _mm_cvtepi32_ps(x
+RETf CVT( const __m128i x ) { return _mm_cvtepi32_ps(x); }
+RETi CVT( const __m128 x ) { return _mm_cvttps_epi32(x); }
+
+#undef RETf
+#undef RETi
+
+}
+#
