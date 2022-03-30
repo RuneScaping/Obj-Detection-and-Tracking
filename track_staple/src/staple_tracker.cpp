@@ -560,3 +560,88 @@ void STAPLE_TRACKER::getFeatureMap(cv::Mat &im_patch, const char *feature_type, 
 
         // apply Hann window
         output.at<Vecf28>(j, i) = output.at<Vecf28>(j, i) * hann_window.at<float>(j, i);
+        output.at<Vecf28>(j, i)[0] = grayimgf.at<float>(j, i) * hann_window.at<float>(j, i);
+    }
+}
+
+void matsplit(const cv::MatND &xt, std::vector<cv::Mat> &xtsplit)
+{
+    cv::Size sz = xt.size();
+    int w = sz.width;
+    int h = sz.height;
+    int cn = xt.channels();
+
+    assert(cn == 28);
+
+    float *XT = new float[w*h*2];
+
+    for (int k = 0; k < cn; k++) {
+        int count = 0;
+
+        for (int i = 0; i < h; i++)
+            for (int j = 0; j < w; j++) {
+                typedef cv::Vec<float, 28> Vecf28;
+
+                Vecf28 p = xt.at<Vecf28>(i, j); // by rows
+
+                XT[count] = p[k];
+                count++;
+                XT[count] = 0.0;
+                count++;
+            }
+
+        cv::Mat dim = cv::Mat(h, w, CV_32FC2, XT).clone();
+        xtsplit.push_back(dim);
+    }
+
+    delete[] XT;
+}
+
+// GET_SUBWINDOW Obtain image sub-window, padding is done by replicating border values.
+//   Returns sub-window of image IM centered at POS ([y, x] coordinates),
+//   with size MODEL_SZ ([height, width]). If any pixels are outside of the image,
+//   they will replicate the values at the borders
+void STAPLE_TRACKER::getSubwindowFloor(const cv::Mat &im, cv::Point_<float> centerCoor, cv::Size model_sz, cv::Size scaled_sz, cv::Mat &output)
+{
+    cv::Size sz = scaled_sz; // scale adaptation
+
+    // make sure the size is not to small
+    sz.width = fmax(sz.width, 2);
+    sz.height = fmax(sz.height, 2);
+
+    cv::Mat subWindow;
+
+    // xs = floor(pos(2)) + (1:patch_sz(2)) - floor(patch_sz(2)/2);
+    // ys = floor(pos(1)) + (1:patch_sz(1)) - floor(patch_sz(1)/2);
+
+    cv::Point lefttop(
+        std::min(im.cols - 1, std::max(-sz.width + 1, int(centerCoor.x + 1) - int(sz.width/2.0))),
+        std::min(im.rows - 1, std::max(-sz.height + 1, int(centerCoor.y + 1) - int(sz.height/2.0)))
+        );
+
+    cv::Point rightbottom(
+        std::max(0, int(lefttop.x + sz.width - 1)),
+        std::max(0, int(lefttop.y + sz.height - 1))
+        );
+
+    cv::Point lefttopLimit(
+        std::max(lefttop.x, 0),
+        std::max(lefttop.y, 0)
+        );
+    cv::Point rightbottomLimit(
+        std::min(rightbottom.x, im.cols - 1),
+        std::min(rightbottom.y, im.rows - 1)
+        );
+
+    rightbottomLimit.x += 1;
+    rightbottomLimit.y += 1;
+    cv::Rect roiRect(lefttopLimit, rightbottomLimit);
+
+    im(roiRect).copyTo(subWindow);
+
+    // imresize(subWindow, output, model_sz, 'bilinear', 'AntiAliasing', false)
+    mexResize(subWindow, output, model_sz, "auto");
+}
+
+// code from DSST
+void STAPLE_TRACKER::getScaleSubwindow(const cv::Mat &im, cv::Point_<float> centerCoor, cv::Mat &output)
