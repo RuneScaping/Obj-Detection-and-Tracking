@@ -466,3 +466,97 @@ void STAPLE_TRACKER::tracker_staple_initialize(const cv::Mat &im, cv::Rect_<floa
         } else {
             for (int i = 0; i < cfg.num_scales; ++i)
                 SWBUFF[i] = 0.5*(1 - cos(_2PI*i / (cfg.num_scales - 1)));
+        }
+
+        scale_window = cv::Mat(1, cfg.num_scales, CV_32FC1, SWBUFF).clone();
+        delete[] SWBUFF;
+
+        float *SFBUF = new float[cfg.num_scales];
+
+        for (int i = 0; i < cfg.num_scales; i++) {
+            SFBUF[i] = pow(cfg.scale_step, (ceil(cfg.num_scales/2.0)  - (i+1)));
+        }
+
+        scale_factors = cv::Mat(1, cfg.num_scales, CV_32FC1, SFBUF).clone();
+        delete[] SFBUF;
+
+        //std::cout << scale_factors << std::endl;
+
+        //ss = 1:p.num_scales;
+        //scale_factors = p.scale_step.^(ceil(p.num_scales/2) - ss);
+
+        if ((cfg.scale_model_factor*cfg.scale_model_factor) * (norm_target_sz.width*norm_target_sz.height) > cfg.scale_model_max_area) {
+            cfg.scale_model_factor = sqrt(cfg.scale_model_max_area/(norm_target_sz.width*norm_target_sz.height));
+        }
+
+        //std::cout << cfg.scale_model_factor << std::endl;
+
+        scale_model_sz.width = floor(norm_target_sz.width * cfg.scale_model_factor);
+        scale_model_sz.height = floor(norm_target_sz.height * cfg.scale_model_factor);
+        //scale_model_sz = floor(p.norm_target_sz * p.scale_model_factor);
+
+        //std::cout << scale_model_sz << std::endl;
+
+        cv::Size sz = im.size();
+        // find maximum and minimum scales
+        min_scale_factor = pow(cfg.scale_step, ceil(log(std::max(5.0/bg_area.width, 5.0/bg_area.height))/log(cfg.scale_step)));
+        max_scale_factor = pow(cfg.scale_step, floor(log(std::min(sz.width/(float)target_sz.width, sz.height/(float)target_sz.height))/log(cfg.scale_step)));
+        //min_scale_factor = p.scale_step ^ ceil(log(max(5 ./ bg_area)) / log(p.scale_step));
+        //max_scale_factor = p.scale_step ^ floor(log(min([size(im,1) size(im,2)] ./ target_sz)) / log(p.scale_step));
+
+        //std::cout << min_scale_factor << " " << max_scale_factor << std::endl;
+    }
+}
+
+// code from DSST
+void STAPLE_TRACKER::getFeatureMap(cv::Mat &im_patch, const char *feature_type, cv::MatND &output)
+{
+    assert(!strcmp(feature_type, "fhog"));
+
+    // allocate space
+#if 0
+    cv::Mat tmp_image;
+    im_patch.convertTo(tmp_image, CV_32FC1);
+    fhog28(output, tmp_image, cfg.hog_cell_size, 9);
+#else
+    fhog28(output, im_patch, cfg.hog_cell_size, 9);
+#endif
+    int w = cf_response_size.width;
+    int h = cf_response_size.height;
+
+    // hog28 already generate this matrix of (w,h,28)
+    // out = zeros(h, w, 28, 'single');
+    // out(:,:,2:28) = temp(:,:,1:27);
+
+    cv::Mat new_im_patch;
+
+    if (cfg.hog_cell_size > 1) {
+        cv::Size newsz(w, h);
+
+        mexResize(im_patch, new_im_patch, newsz, "auto");
+    } else {
+        new_im_patch = im_patch;
+    }
+
+    cv::Mat grayimg;
+
+    if (new_im_patch.channels() > 1) {
+        cv::cvtColor(new_im_patch, grayimg, CV_BGR2GRAY);
+    } else {
+        grayimg = new_im_patch;
+    }
+
+    // out(:,:,1) = single(im_patch)/255 - 0.5;
+
+    cv::Mat grayimgf;
+
+    grayimg.convertTo(grayimgf, CV_32FC1);
+    grayimgf /= 255.0;
+    grayimgf -= 0.5;
+
+    for (int i = 0; i < w; i++)
+        for (int j = 0; j < h; j++) {
+        typedef cv::Vec<float, 28> Vecf28;
+
+        // apply Hann window
+        output.at<Vecf28>(j, i) = output.at<Vecf28>(j, i) * hann_window.at<float>(j, i);
