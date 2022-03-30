@@ -278,3 +278,89 @@ void STAPLE_TRACKER::updateHistModel(bool new_model, cv::Mat &patch, double lear
 
         int fgtotal = cv::countNonZero(fg_mask_new);
         (fgtotal == 0) && (fgtotal = 1);
+        fg_hist = fg_hist / fgtotal;
+    } else { // update the model
+        cv::MatND bg_hist_tmp;
+        cv::MatND fg_hist_tmp;
+
+        cv::calcHist(&patch, imgCount, channels, bg_mask_new, bg_hist_tmp, dims, sizes, ranges);
+        cv::calcHist(&patch, imgCount, channels, fg_mask_new, fg_hist_tmp, dims, sizes, ranges);
+
+        int bgtotal = cv::countNonZero(bg_mask_new);
+        (bgtotal == 0) && (bgtotal = 1);
+        bg_hist_tmp = bg_hist_tmp / bgtotal;
+
+        int fgtotal = cv::countNonZero(fg_mask_new);
+        (fgtotal == 0) && (fgtotal = 1);
+        fg_hist_tmp = fg_hist_tmp / fgtotal;
+
+        // xxx
+        bg_hist = (1 - learning_rate_pwp)*bg_hist + learning_rate_pwp*bg_hist_tmp;
+        fg_hist = (1 - learning_rate_pwp)*fg_hist + learning_rate_pwp*fg_hist_tmp;
+    }
+}
+
+void STAPLE_TRACKER::CalculateHann(cv::Size sz, cv::Mat &output)
+{
+    cv::Mat temp1(cv::Size(sz.width, 1), CV_32FC1);
+    cv::Mat temp2(cv::Size(sz.height, 1), CV_32FC1);
+
+    float *p1 = temp1.ptr<float>(0);
+    float *p2 = temp2.ptr<float>(0);
+
+    for (int i = 0; i < sz.width; ++i)
+        p1[i] = 0.5*(1 - cos(_2PI*i / (sz.width - 1)));
+
+    for (int i = 0; i < sz.height; ++i)
+        p2[i] = 0.5*(1 - cos(_2PI*i / (sz.height - 1)));
+
+    output = temp2.t()*temp1;
+}
+
+void meshgrid(const cv::Range xr, const cv::Range yr, cv::Mat &outX, cv::Mat &outY)
+{
+    std::vector<int> x, y;
+
+    for (int i = xr.start; i <= xr.end; i++)
+      x.push_back(i);
+    for (int i = yr.start; i <= yr.end; i++)
+      y.push_back(i);
+
+    repeat(cv::Mat(x).t(), y.size(), 1, outX);
+    repeat(cv::Mat(y), 1, x.size(), outY);
+}
+
+// GAUSSIANRESPONSE create the (fixed) target response of the correlation filter response
+void STAPLE_TRACKER::gaussianResponse(cv::Size rect_size, double sigma, cv::Mat &output)
+{
+    // half = floor((rect_size-1) / 2);
+    // i_range = -half(1):half(1);
+    // j_range = -half(2):half(2);
+    // [i, j] = ndgrid(i_range, j_range);
+    cv::Size half;
+
+    half.width = floor((rect_size.width - 1) / 2);
+    half.height = floor((rect_size.height - 1) / 2);
+
+    cv::Range i_range(-half.width, rect_size.width - (1 + half.width));
+    cv::Range j_range(-half.height, rect_size.height - (1 + half.height));
+    cv::Mat i, j;
+
+    meshgrid(i_range, j_range, i, j);
+
+    // i_mod_range = mod_one(i_range, rect_size(1));
+    // j_mod_range = mod_one(j_range, rect_size(2));
+
+    std::vector<int> i_mod_range, j_mod_range;
+
+    for (int k = i_range.start; k <= i_range.end; k++) {
+        int val = (int)(k - 1 + rect_size.width) % (int)rect_size.width;
+        i_mod_range.push_back(val);
+    }
+
+    for (int k = j_range.start; k <= j_range.end; k++) {
+        int val = (int)(k - 1 + rect_size.height) % (int)rect_size.height;
+        j_mod_range.push_back(val);
+    }
+
+    // y = zeros(rect_size);
