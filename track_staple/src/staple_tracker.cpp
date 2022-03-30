@@ -364,3 +364,105 @@ void STAPLE_TRACKER::gaussianResponse(cv::Size rect_size, double sigma, cv::Mat 
     }
 
     // y = zeros(rect_size);
+    // y(i_mod_range, j_mod_range) = exp(-(i.^2 + j.^2) / (2 * sigma^2));
+
+    float *OUTPUT = new float[rect_size.width*rect_size.height*2];
+
+    for (int ii = 0; ii < rect_size.width; ii++)
+        for (int jj = 0; jj < rect_size.height; jj++) {
+            int i_idx = i_mod_range[ii];
+            int j_idx = j_mod_range[jj];
+
+            assert((i_idx < rect_size.width) && (j_idx < rect_size.height));
+
+            OUTPUT[j_idx*rect_size.width*2+i_idx*2] = exp(-(i.at<int>(jj, ii)*i.at<int>(jj, ii) + j.at<int>(jj, ii)*j.at<int>(jj, ii)) / (2 * sigma*sigma));
+            OUTPUT[j_idx*rect_size.width*2+i_idx*2+1] = 0;
+        }
+
+    output = cv::Mat(rect_size.height, rect_size.width, CV_32FC2, OUTPUT).clone();
+
+    delete[] OUTPUT;
+}
+
+void STAPLE_TRACKER::tracker_staple_initialize(const cv::Mat &im, cv::Rect_<float> region)
+{
+    int n = im.channels();
+
+    if (n == 1) {
+        cfg.grayscale_sequence = true;
+    }
+
+    // xxx: only support 3 channels, TODO: fix updateHistModel
+    //assert(!cfg.grayscale_sequence);
+
+    // double cx = region.x + region.width / 2.0;
+    // double cy = region.y + region.height / 2.0;
+    double w = region.width;
+    double h = region.height;
+
+    // cfg.init_pos.x = cx;
+    // cfg.init_pos.y = cy;
+    cfg.init_pos.x = region.x + region.width / 2.0;
+    cfg.init_pos.y = region.y + region.height / 2.0;
+
+    cfg.target_sz.width = round(w);
+    cfg.target_sz.height = round(h);
+
+    initializeAllAreas(im);
+
+    pos = cfg.init_pos;
+    target_sz = cfg.target_sz;
+
+    // patch of the target + padding
+    cv::Mat patch_padded;
+
+    getSubwindow(im, pos, norm_bg_area, bg_area, patch_padded);
+
+    // initialize hist model
+    updateHistModel(true, patch_padded);
+
+    CalculateHann(cf_response_size, hann_window);
+
+    // gaussian-shaped desired response, centred in (1,1)
+    // bandwidth proportional to target size
+    double output_sigma
+        = sqrt(norm_target_sz.width * norm_target_sz.height) * cfg.output_sigma_factor / cfg.hog_cell_size;
+
+    cv::Mat y;
+    gaussianResponse(cf_response_size, output_sigma, y);
+    cv::dft(y, yf);
+
+    // SCALE ADAPTATION INITIALIZATION
+    if (cfg.scale_adaptation) {
+        // Code from DSST
+        scale_factor = 1;
+        base_target_sz = target_sz; // xxx
+        float scale_sigma = sqrt(cfg.num_scales) * cfg.scale_sigma_factor;
+        float *SS = new float[cfg.num_scales*2];
+        float *YSBUF = SS;
+
+        for (int i = 0; i < cfg.num_scales; i++) {
+            SS[i*2] = (i+1) - ceil(cfg.num_scales/2.0);
+            YSBUF[i*2] = exp(-0.5 * (SS[i*2]*SS[i*2]) / (scale_sigma*scale_sigma));
+            YSBUF[i*2+1] = 0.0;
+            // SS = (1:p.num_scales) - ceil(p.num_scales/2);
+            // ys = exp(-0.5 * (ss.^2) / scale_sigma^2);
+        }
+
+        cv::Mat ys = cv::Mat(1, cfg.num_scales, CV_32FC2, YSBUF).clone();
+        delete[] SS;
+
+        cv::dft(ys, ysf, cv::DFT_ROWS);
+        //std::cout << ysf << std::endl;
+
+        float *SWBUFF = new float[cfg.num_scales];
+
+        if (cfg.num_scales % 2 == 0) {
+            for (int i = 0; i < cfg.num_scales + 1; ++i) {
+                if (i > 0) {
+                    SWBUFF[i - 1] = 0.5*(1 - cos(_2PI*i / (cfg.num_scales + 1 - 1)));
+                }
+            }
+        } else {
+            for (int i = 0; i < cfg.num_scales; ++i)
+                SWBUFF[i] = 0.5*(1 - cos(_2PI*i / (cfg.num_scales - 1)));
