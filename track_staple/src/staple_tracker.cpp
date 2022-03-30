@@ -175,3 +175,106 @@ void STAPLE_TRACKER::updateHistModel(bool new_model, cv::Mat &patch, double lear
     cv::Size pad_offset1;
 
     // we constrained the difference to be mod2, so we do not have to round here
+    pad_offset1.width = (bg_area.width - target_sz.width) / 2;
+    pad_offset1.height = (bg_area.height - target_sz.height) / 2;
+
+    // difference between bg_area and target_sz has to be even
+    if (
+        (
+            (pad_offset1.width == round(pad_offset1.width)) &&
+            (pad_offset1.height != round(pad_offset1.height))
+        ) ||
+        (
+            (pad_offset1.width != round(pad_offset1.width)) &&
+            (pad_offset1.height == round(pad_offset1.height))
+        )) {
+        assert(0);
+    }
+
+    pad_offset1.width = fmax(pad_offset1.width, 1);
+    pad_offset1.height = fmax(pad_offset1.height, 1);
+
+    //std::cout << "pad_offset1 " << pad_offset1 << std::endl;
+
+    cv::Mat bg_mask(bg_area, CV_8UC1, cv::Scalar(1)); // init bg_mask
+
+    // xxx: bg_mask(pad_offset1(1)+1:end-pad_offset1(1), pad_offset1(2)+1:end-pad_offset1(2)) = false;
+
+    cv::Rect pad1_rect(
+        pad_offset1.width,
+        pad_offset1.height,
+        bg_area.width - 2 * pad_offset1.width,
+        bg_area.height - 2 * pad_offset1.height
+        );
+
+    bg_mask(pad1_rect) = false;
+
+    ////////////////////////////////////////////////////////////////////////
+    cv::Size pad_offset2;
+
+    // we constrained the difference to be mod2, so we do not have to round here
+    pad_offset2.width = (bg_area.width - fg_area.width) / 2;
+    pad_offset2.height = (bg_area.height - fg_area.height) / 2;
+
+    // difference between bg_area and fg_area has to be even
+    if (
+        (
+            (pad_offset2.width == round(pad_offset2.width)) &&
+            (pad_offset2.height != round(pad_offset2.height))
+        ) ||
+        (
+            (pad_offset2.width != round(pad_offset2.width)) &&
+            (pad_offset2.height == round(pad_offset2.height))
+        )) {
+        assert(0);
+    }
+
+    pad_offset2.width = fmax(pad_offset2.width, 1);
+    pad_offset2.height = fmax(pad_offset2.height, 1);
+
+    //std::cout << "pad_offset2 " << pad_offset2 << std::endl;
+
+    cv::Mat fg_mask(bg_area, CV_8UC1, cv::Scalar(0)); // init fg_mask
+
+    // xxx: fg_mask(pad_offset2(1)+1:end-pad_offset2(1), pad_offset2(2)+1:end-pad_offset2(2)) = true;
+
+    cv::Rect pad2_rect(
+        pad_offset2.width,
+        pad_offset2.height,
+        bg_area.width - 2 * pad_offset2.width,
+        bg_area.height - 2 * pad_offset2.height
+        );
+
+    fg_mask(pad2_rect) = true;
+    ////////////////////////////////////////////////////////////////////////
+
+    cv::Mat fg_mask_new;
+    cv::Mat bg_mask_new;
+
+    mexResize(fg_mask, fg_mask_new, norm_bg_area, "auto");
+    mexResize(bg_mask, bg_mask_new, norm_bg_area, "auto");
+
+    int imgCount = 1;
+    int dims = 3;
+    const int sizes[] = { cfg.n_bins, cfg.n_bins, cfg.n_bins };
+    const int channels[] = { 0, 1, 2 };
+    float bRange[] = { 0, 256 };
+    float gRange[] = { 0, 256 };
+    float rRange[] = { 0, 256 };
+    const float *ranges[] = { bRange, gRange, rRange };
+
+    if (cfg.grayscale_sequence) {
+        dims = 1;
+    }
+
+    // (TRAIN) BUILD THE MODEL
+    if (new_model) {
+        cv::calcHist(&patch, imgCount, channels, bg_mask_new, bg_hist, dims, sizes, ranges);
+        cv::calcHist(&patch, imgCount, channels, fg_mask_new, fg_hist, dims, sizes, ranges);
+
+        int bgtotal = cv::countNonZero(bg_mask_new);
+        (bgtotal == 0) && (bgtotal = 1);
+        bg_hist = bg_hist / bgtotal;
+
+        int fgtotal = cv::countNonZero(fg_mask_new);
+        (fgtotal == 0) && (fgtotal = 1);
