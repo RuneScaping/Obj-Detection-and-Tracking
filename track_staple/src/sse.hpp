@@ -63,4 +63,4 @@ RETi CVT( const __m128 x ) { return _mm_cvttps_epi32(x); }
 #undef RETi
 
 }
-#
+#endif
