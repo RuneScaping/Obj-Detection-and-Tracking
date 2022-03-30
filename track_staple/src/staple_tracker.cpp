@@ -79,3 +79,99 @@ void STAPLE_TRACKER::initializeAllAreas(const cv::Mat &im)
 
     area_resize_factor = sqrt(cfg.fixed_area / double(bg_area.width * bg_area.height));
     norm_bg_area.width = round(bg_area.width * area_resize_factor);
+    norm_bg_area.height = round(bg_area.height * area_resize_factor);
+
+    std::cout << "area_resize_factor " << area_resize_factor << " norm_bg_area.width " << norm_bg_area.width << " norm_bg_area.height " << norm_bg_area.height << std::endl;
+
+    // Correlation Filter (HOG) feature space
+    // It smaller that the norm bg area if HOG cell size is > 1
+    cf_response_size.width = floor(norm_bg_area.width / cfg.hog_cell_size);
+    cf_response_size.height = floor(norm_bg_area.height / cfg.hog_cell_size);
+
+    // given the norm BG area, which is the corresponding target w and h?
+    double norm_target_sz_w = 0.75*norm_bg_area.width - 0.25*norm_bg_area.height;
+    double norm_target_sz_h = 0.75*norm_bg_area.height - 0.25*norm_bg_area.width;
+
+    // norm_target_sz_w = params.target_sz(2) * params.norm_bg_area(2) / bg_area(2);
+    // norm_target_sz_h = params.target_sz(1) * params.norm_bg_area(1) / bg_area(1);
+    norm_target_sz.width = round(norm_target_sz_w);
+    norm_target_sz.height = round(norm_target_sz_h);
+
+    std::cout << "norm_target_sz.width " << norm_target_sz.width << " norm_target_sz.height " << norm_target_sz.height << std::endl;
+
+    // distance (on one side) between target and bg area
+    cv::Size norm_pad;
+
+    norm_pad.width = floor((norm_bg_area.width - norm_target_sz.width) / 2.0);
+    norm_pad.height = floor((norm_bg_area.height - norm_target_sz.height) / 2.0);
+
+    int radius = floor(fmin(norm_pad.width, norm_pad.height));
+
+    // norm_delta_area is the number of rectangles that are considered.
+    // it is the "sampling space" and the dimension of the final merged resposne
+    // it is squared to not privilege any particular direction
+    norm_delta_area = cv::Size((2*radius+1), (2*radius+1));
+
+    // Rectangle in which the integral images are computed.
+    // Grid of rectangles ( each of size norm_target_sz) has size norm_delta_area.
+    norm_pwp_search_area.width = norm_target_sz.width + norm_delta_area.width - 1;
+    norm_pwp_search_area.height = norm_target_sz.height + norm_delta_area.height - 1;
+
+    std::cout << "norm_pwp_search_area.width " << norm_pwp_search_area.width << " norm_pwp_search_area.height " << norm_pwp_search_area.height << std::endl;
+}
+
+// GET_SUBWINDOW Obtain image sub-window, padding is done by replicating border values.
+//   Returns sub-window of image IM centered at POS ([y, x] coordinates),
+//   with size MODEL_SZ ([height, width]). If any pixels are outside of the image,
+//   they will replicate the values at the borders
+void STAPLE_TRACKER::getSubwindow(const cv::Mat &im, cv::Point_<float> centerCoor, cv::Size model_sz, cv::Size scaled_sz, cv::Mat &output)
+{
+    cv::Size sz = scaled_sz; // scale adaptation
+
+    // make sure the size is not to small
+    sz.width = fmax(sz.width, 2);
+    sz.height = fmax(sz.height, 2);
+
+    cv::Mat subWindow;
+
+    // xs = round(pos(2) + (1:sz(2)) - sz(2)/2);
+    // ys = round(pos(1) + (1:sz(1)) - sz(1)/2);
+
+    cv::Point lefttop(
+        std::min(im.cols - 1, std::max(-sz.width + 1, int(centerCoor.x + 1 - sz.width/2.0+0.5))),
+        std::min(im.rows - 1, std::max(-sz.height + 1, int(centerCoor.y + 1 - sz.height/2.0+0.5)))
+        );
+
+    cv::Point rightbottom(
+        std::max(0, int(lefttop.x + sz.width - 1)),
+        std::max(0, int(lefttop.y + sz.height - 1))
+        );
+
+    cv::Point lefttopLimit(
+        std::max(lefttop.x, 0),
+        std::max(lefttop.y, 0)
+        );
+    cv::Point rightbottomLimit(
+        std::min(rightbottom.x, im.cols - 1),
+        std::min(rightbottom.y, im.rows - 1)
+        );
+
+    rightbottomLimit.x += 1;
+    rightbottomLimit.y += 1;
+    cv::Rect roiRect(lefttopLimit, rightbottomLimit);
+
+    im(roiRect).copyTo(subWindow);
+
+    // imresize(subWindow, output, model_sz, 'bilinear', 'AntiAliasing', false)
+    mexResize(subWindow, output, model_sz, "auto");
+}
+
+// UPDATEHISTMODEL create new models for foreground and background or update the current ones
+void STAPLE_TRACKER::updateHistModel(bool new_model, cv::Mat &patch, double learning_rate_pwp)
+{
+    // Get BG (frame around target_sz) and FG masks (inner portion of target_sz)
+
+    ////////////////////////////////////////////////////////////////////////
+    cv::Size pad_offset1;
+
+    // we constrained the difference to be mod2, so we do not have to round here
