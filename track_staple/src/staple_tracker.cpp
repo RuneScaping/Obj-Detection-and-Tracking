@@ -1118,3 +1118,86 @@ cv::Rect STAPLE_TRACKER::tracker_staple_update(const cv::Mat &im)
         delete[] DIM;
     } else {
         //hf = bsxfun(@rdivide, hf_num, sum(hf_den, 3)+p.lambda);
+
+        float *DIM1 = new float[w*h];
+
+        for (int i = 0; i < w; i++)
+            for (int j = 0; j < h; j++) {
+                float sum=0.0;
+
+                for (int ch = 0; ch < xt_windowed.channels(); ch++) {
+                    sum += hf_den[ch].at<float>(j,i);
+                }
+
+                DIM1[j*w+i] = sum + cfg.lambda;
+            }
+
+        float *DIM = new float[w*h*2];
+
+        for (int ch = 0; ch < xt_windowed.channels(); ch++) {
+            for (int i = 0; i < w; i++)
+                for (int j = 0; j < h; j++) {
+                    cv::Vec2f p = hf_num[ch].at<cv::Vec2f>(j,i);
+
+                    DIM[j*w*2+i*2+0] = p[0] / DIM1[j*w+i];
+                    DIM[j*w*2+i*2+1] = p[1] / DIM1[j*w+i];
+                }
+
+            cv::Mat dim = cv::Mat(h, w, CV_32FC2, DIM).clone();
+
+            hf.push_back(dim);
+        }
+
+        delete[] DIM;
+
+        delete[] DIM1;
+    }
+
+    float *RESPONSE_CF = new float[w*h*2];
+
+    for (int i = 0; i < w; i++)
+        for (int j = 0; j < h; j++) {
+            float sum=0.0;
+            float sumi=0.0;
+
+            for (size_t ch = 0; ch < hf.size(); ch++) {
+                cv::Vec2f pHF = hf[ch].at<cv::Vec2f>(j,i);
+                cv::Vec2f pXTF = xtf[ch].at<cv::Vec2f>(j,i);
+
+                sum += (pHF[0]*pXTF[0] + pHF[1]*pXTF[1]);
+                sumi += (pHF[0]*pXTF[1] - pHF[1]*pXTF[0]);
+
+                // assert(norm(imag(x(:))) <= 1e-5 * norm(real(x(:))));
+            }
+
+            RESPONSE_CF[j*w*2+i*2+0] = sum;
+            RESPONSE_CF[j*w*2+i*2+1] = sumi;
+        }
+
+    cv::Mat response_cff = cv::Mat(h, w, CV_32FC2, RESPONSE_CF).clone();
+    delete[] RESPONSE_CF;
+
+    cv::Mat response_cfi;
+    cv::dft(response_cff, response_cfi, cv::DFT_SCALE|cv::DFT_INVERSE);
+    cv::Mat response_cf = ensure_real(response_cfi);
+
+    // response_cf = ensure_real(ifft2(sum(conj(hf) .* xtf, 3)));
+
+    // Crop square search region (in feature pixels).
+    cv::Size newsz = norm_delta_area;
+    newsz.width = floor(newsz.width / cfg.hog_cell_size);
+    newsz.height = floor(newsz.height / cfg.hog_cell_size);
+
+    (newsz.width % 2 == 0) && (newsz.width -= 1);
+    (newsz.height % 2 == 0) && (newsz.height -= 1);
+
+    cropFilterResponse(response_cf, newsz, response_cf);
+
+    if (cfg.hog_cell_size > 1) {
+        cv::Mat temp;
+
+        mexResize(response_cf, temp, norm_delta_area, "auto");
+        response_cf = temp; // xxx: low performance
+    }
+
+    cv::Mat likelihood_map;
