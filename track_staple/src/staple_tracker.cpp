@@ -1201,3 +1201,120 @@ cv::Rect STAPLE_TRACKER::tracker_staple_update(const cv::Mat &im)
     }
 
     cv::Mat likelihood_map;
+    getColourMap(im_patch_pwp, likelihood_map);
+    //[likelihood_map] = getColourMap(im_patch_pwp, bg_hist, fg_hist, p.n_bins, p.grayscale_sequence);
+
+    // each pixel of response_pwp loosely represents the likelihood that
+    // the target (of size norm_target_sz) is centred on it
+    cv::Mat response_pwp;
+    getCenterLikelihood(likelihood_map, norm_target_sz, response_pwp);
+
+    // ESTIMATION
+    cv::Mat response;
+    mergeResponses(response_cf, response_pwp, response);
+
+    double minVal, maxVal;
+    cv::Point minLoc, maxLoc;
+
+    cv::minMaxLoc(response, &minVal, &maxVal, &minLoc, &maxLoc);
+    //[row, col] = find(response == max(response(:)), 1);
+
+    //std::cout << maxLoc.x << " " << maxLoc.y << std::endl;
+
+    float centerx = (1 + norm_delta_area.width) / 2 - 1;
+    float centery = (1 + norm_delta_area.height) / 2 - 1;
+
+    pos.x += (maxLoc.x - centerx) / area_resize_factor;
+    pos.y += (maxLoc.y - centery) / area_resize_factor;
+
+    // Report current location
+    cv::Rect_<float> location;
+
+    location.x = pos.x - target_sz.width/2.0;
+    location.y = pos.y - target_sz.height/2.0;
+    location.width = target_sz.width;
+    location.height = target_sz.height;
+
+    //std::cout << location << std::endl;
+
+    // center = (1+p.norm_delta_area) / 2;
+    // pos = pos + ([row, col] - center) / area_resize_factor;
+    // rect_position = [pos([2,1]) - target_sz([2,1])/2, target_sz([2,1])];
+
+    // SCALE SPACE SEARCH
+    if (cfg.scale_adaptation) {
+        cv::Mat im_patch_scale;
+
+        getScaleSubwindow(im, pos, im_patch_scale);
+
+        cv::Mat xsf;
+        cv::dft(im_patch_scale, xsf, cv::DFT_ROWS);
+
+        // im_patch_scale = getScaleSubwindow(im, pos, base_target_sz, scale_factor * scale_factors, scale_window, scale_model_sz, p.hog_scale_cell_size);
+        // xsf = fft(im_patch_scale,[],2);
+
+        cv::Size sz = xsf.size();
+        int w = sz.width;
+        int h = sz.height;
+        float *SCALE_RESPONSEF = new float[w*2]();
+
+        for (int i = 0; i < w; i++) {
+            for (int j = 0; j < h; j++) {
+                cv::Vec2f pXSF = xsf.at<cv::Vec2f>(j,i);
+                cv::Vec2f pXSFNUM = sf_num.at<cv::Vec2f>(j,i);
+
+                SCALE_RESPONSEF[i*2] += (pXSFNUM[0]*pXSF[0] - pXSFNUM[1]*pXSF[1]) / (sf_den.at<float>(i) + cfg.lambda);
+                SCALE_RESPONSEF[i*2 + 1] += (pXSFNUM[0]*pXSF[1] + pXSFNUM[1]*pXSF[0]) / (sf_den.at<float>(i) + cfg.lambda);
+            }
+        }
+
+        cv::Mat scale_responsef = cv::Mat(1, w, CV_32FC2, SCALE_RESPONSEF).clone();
+        delete[] SCALE_RESPONSEF;
+
+        cv::Mat scale_response;
+
+        cv::dft(scale_responsef, scale_response, cv::DFT_SCALE|cv::DFT_INVERSE|cv::DFT_REAL_OUTPUT);
+
+        //scale_response = real(ifft(sum(sf_num .* xsf, 1) ./ (sf_den + p.lambda) ));
+
+        double minVal, maxVal;
+        cv::Point minLoc, maxLoc;
+
+        cv::minMaxLoc(scale_response, &minVal, &maxVal, &minLoc, &maxLoc);
+
+        //recovered_scale = ind2sub(size(scale_response),find(scale_response == max(scale_response(:)), 1));
+
+        int recovered_scale =  maxLoc.x;
+
+        // set the scale
+        scale_factor = scale_factor * scale_factors.at<float>(recovered_scale);
+
+        if (scale_factor < min_scale_factor) {
+            scale_factor = min_scale_factor;
+        } else if (scale_factor > max_scale_factor) {
+            scale_factor = max_scale_factor;
+        }
+
+        // use new scale to update bboxes for target, filter, bg and fg models
+        target_sz.width = round(base_target_sz.width * scale_factor);
+        target_sz.height = round(base_target_sz.height * scale_factor);
+
+        float avg_dim = (target_sz.width + target_sz.height)/2.0;
+
+        bg_area.width= round(target_sz.width + avg_dim);
+        bg_area.height = round(target_sz.height + avg_dim);
+
+        (bg_area.width > im.cols) && (bg_area.width = im.cols - 1);
+        (bg_area.height > im.rows) && (bg_area.height = im.rows - 1);
+
+        bg_area.width = bg_area.width - (bg_area.width - target_sz.width) % 2;
+        bg_area.height = bg_area.height - (bg_area.height - target_sz.height) % 2;
+
+        fg_area.width = round(target_sz.width - avg_dim * cfg.inner_padding);
+        fg_area.height = round(target_sz.height - avg_dim * cfg.inner_padding);
+
+        fg_area.width = fg_area.width + int(bg_area.width - fg_area.width) % 2;
+        fg_area.height = fg_area.height + int(bg_area.height - fg_area.height) % 2;
+
+        // Compute the rectangle with (or close to) params.fixed_area and
+        // same aspect ratio as the target bboxgetScaleSubwindow
