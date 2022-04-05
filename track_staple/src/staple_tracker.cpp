@@ -1318,3 +1318,8 @@ cv::Rect STAPLE_TRACKER::tracker_staple_update(const cv::Mat &im)
 
         // Compute the rectangle with (or close to) params.fixed_area and
         // same aspect ratio as the target bboxgetScaleSubwindow
+        area_resize_factor = sqrt(cfg.fixed_area / (float)(bg_area.width * bg_area.height));
+    }
+
+    return location;
+}
