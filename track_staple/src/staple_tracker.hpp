@@ -85,3 +85,40 @@ private:
 
     cv::Size bg_area;
     cv::Size fg_area;
+    double area_resize_factor;
+    cv::Size cf_response_size;
+
+    cv::Size norm_bg_area;
+    cv::Size norm_target_sz;
+    cv::Size norm_delta_area;
+    cv::Size norm_pwp_search_area;
+
+    cv::Mat im_patch_pwp;
+
+    cv::MatND bg_hist;
+    cv::MatND fg_hist;
+
+    cv::Mat hann_window;
+    cv::Mat yf;
+
+    std::vector<cv::Mat> hf_den;
+    std::vector<cv::Mat> hf_num;
+
+    cv::Rect rect_position;
+
+    float scale_factor;
+    cv::Mat scale_window;
+    cv::Mat scale_factors;
+    cv::Size scale_model_sz;
+    float min_scale_factor;
+    float max_scale_factor;
+    cv::Size base_target_sz;
+
+    cv::Mat ysf;
+    cv::Mat sf_den;
+    cv::Mat sf_num;
+
+    int frameno;
+};
+
+#endif
