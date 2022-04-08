@@ -8,4 +8,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 message(STATUS "optional:-std=c++11")
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
-find_package(OpenCV REQUIRE
+find_package(OpenCV REQUIRED)
+
+message(STATUS "OpenCV library status:")
+message(STATUS "    version: ${OpenCV_VE
