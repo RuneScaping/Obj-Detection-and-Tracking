@@ -13,4 +13,7 @@ find_package(OpenCV REQUIRED)
 message(STATUS "OpenCV library status:")
 message(STATUS "    version: ${OpenCV_VERSION}")
 message(STATUS "    libraries: ${OpenCV_LIBS}")
-message(STATUS "    inclu
+message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
+
+if(CMAKE_VERSION VERSION_LESS "2.8.11")
+  include_direc
