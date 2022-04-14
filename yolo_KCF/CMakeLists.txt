@@ -21,4 +21,10 @@ endif()
 
 
 file(GLOB SRCS ./src/*.cpp)
-file(GLOB HDRS ./sr
+file(GLOB HDRS ./src/*.h*)
+
+set(traincascade_files ${SRCS} ${HDRS})
+
+add_executable(detect ${traincascade_files})
+
+# inc
