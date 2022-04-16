@@ -27,4 +27,6 @@ set(traincascade_files ${SRCS} ${HDRS})
 
 add_executable(detect ${traincascade_files})
 
-# inc
+# include_directories(./src)
+
+target_link_libraries(detect ${OpenCV_LIBS} libdarknet.so)
