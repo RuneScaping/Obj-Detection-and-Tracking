@@ -124,3 +124,20 @@ int main(int argc, char **argv)
         // Show real-time fps.
         float fps = cv::getTickFrequency() / ((double)cv::getTickCount() - timer);
         putText(frameShow, "FPS : " + SSTR(int(fps)), cv::Point(100,50), cv::FONT_HERSHEY_SIMPLEX, 0.75, cv::Scalar(50,170,50), 2);
+        imshow("Detection-Tracking", frameShow);
+
+        int k = cv::waitKey(1);
+        if(k == 27)
+        {
+            break;
+        }
+
+        meter.stop();
+    }
+    
+    // Print average fps.
+    double fps = double(meter.getCounter()) / meter.getTimeSec();
+    cout << "[Average fps] " << fps << endl;
+
+    return 0;
+}
