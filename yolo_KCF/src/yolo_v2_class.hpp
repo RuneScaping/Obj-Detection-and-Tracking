@@ -132,3 +132,96 @@ private:
         int count = 0;
 
         for (int k = 0; k < c; ++k) {
+            for (int i = 0; i < h; ++i) {
+                int i_step = i*step;
+                for (int j = 0; j < w; ++j) {
+                    out.data[count++] = data[i_step + j*c + k] / 255.;
+                }
+            }
+        }
+
+        return out;
+    }
+
+    static image_t make_empty_image(int w, int h, int c)
+    {
+        image_t out;
+        out.data = 0;
+        out.h = h;
+        out.w = w;
+        out.c = c;
+        return out;
+    }
+
+    static image_t make_image_custom(int w, int h, int c)
+    {
+        image_t out = make_empty_image(w, h, c);
+        out.data = (float *)calloc(h*w*c, sizeof(float));
+        return out;
+    }
+
+#endif    // OPENCV
+
+};
+
+
+
+#if defined(TRACK_OPTFLOW) && defined(OPENCV) && defined(GPU)
+
+#include <opencv2/cudaoptflow.hpp>
+#include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudaarithm.hpp>
+#include <opencv2/core/cuda.hpp>
+
+class Tracker_optflow {
+public:
+    const int gpu_count;
+    const int gpu_id;
+    const int flow_error;
+
+
+    Tracker_optflow(int _gpu_id = 0, int win_size = 9, int max_level = 3, int iterations = 8000, int _flow_error = -1) :
+        gpu_count(cv::cuda::getCudaEnabledDeviceCount()), gpu_id(std::min(_gpu_id, gpu_count-1)),
+        flow_error((_flow_error > 0)? _flow_error:(win_size*4))
+    {
+        int const old_gpu_id = cv::cuda::getDevice();
+        cv::cuda::setDevice(gpu_id);
+
+        stream = cv::cuda::Stream();
+
+        sync_PyrLKOpticalFlow_gpu = cv::cuda::SparsePyrLKOpticalFlow::create();
+        sync_PyrLKOpticalFlow_gpu->setWinSize(cv::Size(win_size, win_size));    // 9, 15, 21, 31
+        sync_PyrLKOpticalFlow_gpu->setMaxLevel(max_level);        // +- 3 pt
+        sync_PyrLKOpticalFlow_gpu->setNumIters(iterations);    // 2000, def: 30
+
+        cv::cuda::setDevice(old_gpu_id);
+    }
+
+    // just to avoid extra allocations
+    cv::cuda::GpuMat src_mat_gpu;
+    cv::cuda::GpuMat dst_mat_gpu, dst_grey_gpu;
+    cv::cuda::GpuMat prev_pts_flow_gpu, cur_pts_flow_gpu;
+    cv::cuda::GpuMat status_gpu, err_gpu;
+
+    cv::cuda::GpuMat src_grey_gpu;    // used in both functions
+    cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> sync_PyrLKOpticalFlow_gpu;
+    cv::cuda::Stream stream;
+
+    std::vector<bbox_t> cur_bbox_vec;
+    std::vector<bool> good_bbox_vec_flags;
+    cv::Mat prev_pts_flow_cpu;
+
+    void update_cur_bbox_vec(std::vector<bbox_t> _cur_bbox_vec)
+    {
+        cur_bbox_vec = _cur_bbox_vec;
+        good_bbox_vec_flags = std::vector<bool>(cur_bbox_vec.size(), true);
+        cv::Mat prev_pts, cur_pts_flow_cpu;
+
+        for (auto &i : cur_bbox_vec) {
+            float x_center = (i.x + i.w / 2.0F);
+            float y_center = (i.y + i.h / 2.0F);
+            prev_pts.push_back(cv::Point2f(x_center, y_center));
+        }
+
+        if (prev_pts.rows == 0)
+            prev_pts_flow_cpu = cv::Mat();
