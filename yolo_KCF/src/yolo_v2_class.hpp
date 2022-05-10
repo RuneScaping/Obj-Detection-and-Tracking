@@ -477,3 +477,103 @@ static cv::Scalar obj_id_to_color(int obj_id) {
 }
 
 class preview_boxes_t {
+    enum { frames_history = 30 };    // how long to keep the history saved
+
+    struct preview_box_track_t {
+        unsigned int track_id, obj_id, last_showed_frames_ago;
+        bool current_detection;
+        bbox_t bbox;
+        cv::Mat mat_obj, mat_resized_obj;
+        preview_box_track_t() : track_id(0), obj_id(0), last_showed_frames_ago(frames_history), current_detection(false) {}
+    };
+    std::vector<preview_box_track_t> preview_box_track_id;
+    size_t const preview_box_size, bottom_offset;
+    bool const one_off_detections;
+public:
+    preview_boxes_t(size_t _preview_box_size = 100, size_t _bottom_offset = 100, bool _one_off_detections = false) :
+        preview_box_size(_preview_box_size), bottom_offset(_bottom_offset), one_off_detections(_one_off_detections)
+    {}
+
+    void set(cv::Mat src_mat, std::vector<bbox_t> result_vec)
+    {
+        size_t const count_preview_boxes = src_mat.cols / preview_box_size;
+        if (preview_box_track_id.size() != count_preview_boxes) preview_box_track_id.resize(count_preview_boxes);
+
+        // increment frames history
+        for (auto &i : preview_box_track_id)
+            i.last_showed_frames_ago = std::min((unsigned)frames_history, i.last_showed_frames_ago + 1);
+
+        // occupy empty boxes
+        for (auto &k : result_vec) {
+            bool found = false;
+            // find the same (track_id)
+            for (auto &i : preview_box_track_id) {
+                if (i.track_id == k.track_id) {
+                    if (!one_off_detections) i.last_showed_frames_ago = 0; // for tracked objects
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                // find empty box
+                for (auto &i : preview_box_track_id) {
+                    if (i.last_showed_frames_ago == frames_history) {
+                        if (!one_off_detections && k.frames_counter == 0) break; // don't show if obj isn't tracked yet
+                        i.track_id = k.track_id;
+                        i.obj_id = k.obj_id;
+                        i.bbox = k;
+                        i.last_showed_frames_ago = 0;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // draw preview box (from old or current frame)
+        for (size_t i = 0; i < preview_box_track_id.size(); ++i)
+        {
+            // get object image
+            cv::Mat dst = preview_box_track_id[i].mat_resized_obj;
+            preview_box_track_id[i].current_detection = false;
+
+            for (auto &k : result_vec) {
+                if (preview_box_track_id[i].track_id == k.track_id) {
+                    if (one_off_detections && preview_box_track_id[i].last_showed_frames_ago > 0) {
+                        preview_box_track_id[i].last_showed_frames_ago = frames_history; break;
+                    }
+                    bbox_t b = k;
+                    cv::Rect r(b.x, b.y, b.w, b.h);
+                    cv::Rect img_rect(cv::Point2i(0, 0), src_mat.size());
+                    cv::Rect rect_roi = r & img_rect;
+                    if (rect_roi.width > 1 || rect_roi.height > 1) {
+                        cv::Mat roi = src_mat(rect_roi);
+                        cv::resize(roi, dst, cv::Size(preview_box_size, preview_box_size), cv::INTER_NEAREST);
+                        preview_box_track_id[i].mat_obj = roi.clone();
+                        preview_box_track_id[i].mat_resized_obj = dst.clone();
+                        preview_box_track_id[i].current_detection = true;
+                        preview_box_track_id[i].bbox = k;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+
+    void draw(cv::Mat draw_mat, bool show_small_boxes = false)
+    {
+        // draw preview box (from old or current frame)
+        for (size_t i = 0; i < preview_box_track_id.size(); ++i)
+        {
+            auto &prev_box = preview_box_track_id[i];
+
+            // draw object image
+            cv::Mat dst = prev_box.mat_resized_obj;
+            if (prev_box.last_showed_frames_ago < frames_history &&
+                dst.size() == cv::Size(preview_box_size, preview_box_size))
+            {
+                cv::Rect dst_rect_roi(cv::Point2i(i * preview_box_size, draw_mat.rows - bottom_offset), dst.size());
+                cv::Mat dst_roi = draw_mat(dst_rect_roi);
+                dst.copyTo(dst_roi);
+
+                cv::Scalar color = obj_id_to_color(prev_box.obj_id);
