@@ -303,3 +303,76 @@ public:
         status_gpu.download(status_cpu, stream);
 
         stream.waitForCompletion();
+
+        std::vector<bbox_t> result_bbox_vec;
+
+        if (err_cpu.cols == cur_bbox_vec.size() && status_cpu.cols == cur_bbox_vec.size())
+        {
+            for (size_t i = 0; i < cur_bbox_vec.size(); ++i)
+            {
+                cv::Point2f cur_key_pt = cur_pts_flow_cpu.at<cv::Point2f>(0, i);
+                cv::Point2f prev_key_pt = prev_pts_flow_cpu.at<cv::Point2f>(0, i);
+
+                float moved_x = cur_key_pt.x - prev_key_pt.x;
+                float moved_y = cur_key_pt.y - prev_key_pt.y;
+
+                if (abs(moved_x) < 100 && abs(moved_y) < 100 && good_bbox_vec_flags[i])
+                    if (err_cpu.at<float>(0, i) < flow_error && status_cpu.at<unsigned char>(0, i) != 0 &&
+                        ((float)cur_bbox_vec[i].x + moved_x) > 0 && ((float)cur_bbox_vec[i].y + moved_y) > 0)
+                    {
+                        cur_bbox_vec[i].x += moved_x + 0.5;
+                        cur_bbox_vec[i].y += moved_y + 0.5;
+                        result_bbox_vec.push_back(cur_bbox_vec[i]);
+                    }
+                    else good_bbox_vec_flags[i] = false;
+                else good_bbox_vec_flags[i] = false;
+
+                //if(!check_error && !good_bbox_vec_flags[i]) result_bbox_vec.push_back(cur_bbox_vec[i]);
+            }
+        }
+
+        cur_pts_flow_gpu.swap(prev_pts_flow_gpu);
+        cur_pts_flow_cpu.copyTo(prev_pts_flow_cpu);
+
+        if (old_gpu_id != gpu_id)
+            cv::cuda::setDevice(old_gpu_id);
+
+        return result_bbox_vec;
+    }
+
+};
+
+#elif defined(TRACK_OPTFLOW) && defined(OPENCV)
+
+//#include <opencv2/optflow.hpp>
+#include <opencv2/video/tracking.hpp>
+
+class Tracker_optflow {
+public:
+    const int flow_error;
+
+
+    Tracker_optflow(int win_size = 9, int max_level = 3, int iterations = 8000, int _flow_error = -1) :
+        flow_error((_flow_error > 0)? _flow_error:(win_size*4))
+    {
+        sync_PyrLKOpticalFlow = cv::SparsePyrLKOpticalFlow::create();
+        sync_PyrLKOpticalFlow->setWinSize(cv::Size(win_size, win_size));    // 9, 15, 21, 31
+        sync_PyrLKOpticalFlow->setMaxLevel(max_level);        // +- 3 pt
+
+    }
+
+    // just to avoid extra allocations
+    cv::Mat dst_grey;
+    cv::Mat prev_pts_flow, cur_pts_flow;
+    cv::Mat status, err;
+
+    cv::Mat src_grey;    // used in both functions
+    cv::Ptr<cv::SparsePyrLKOpticalFlow> sync_PyrLKOpticalFlow;
+
+    std::vector<bbox_t> cur_bbox_vec;
+    std::vector<bool> good_bbox_vec_flags;
+
+    void update_cur_bbox_vec(std::vector<bbox_t> _cur_bbox_vec)
+    {
+        cur_bbox_vec = _cur_bbox_vec;
+        good_bbox_vec_flags = std::vector<bool>(cur_bbox_vec.size(), true);
