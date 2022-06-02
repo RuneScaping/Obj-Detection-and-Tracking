@@ -82,3 +82,25 @@ int main()
                 }
             }
             if(status == 1)
+            {
+                cout << "[loc: " << location.x << " " << location.y  << " " << location.width << " " << location.height << "]\n";
+                rectangle(frameShow, location, Scalar(0, 128, 255), 2);
+            }
+        }
+        
+        if(show_visualization)
+        {
+            imshow("YinFeiLin", frameShow);
+            char key = waitKey(1);
+            if (key == 27 || key == 'q' || key == 'Q')
+                break;
+        }
+
+        meter.stop();
+    }
+
+    double fps = double(meter.getCounter()) / meter.getTimeSec();
+    cout << "[YinFeiLin] " << "fps: " << fps << endl;
+
+    return 0;
+}
