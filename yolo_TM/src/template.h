@@ -7,4 +7,9 @@ class Template{
     public:
         Template();
         void initTracking(Mat frame, Rect box, int scale = 5);
-        Rect track(Mat 
+        Rect track(Mat frame);
+        Rect getLocation();
+    private:
+        Mat model;
+        Rect location;
+        i
