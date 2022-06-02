@@ -1,4 +1,9 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 using namespace std;
-usi
+using namespace cv;
+
+class Template{
+    public:
+        Template();
+        void ini
