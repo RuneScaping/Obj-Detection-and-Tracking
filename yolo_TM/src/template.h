@@ -6,4 +6,5 @@ using namespace cv;
 class Template{
     public:
         Template();
-        void ini
+        void initTracking(Mat frame, Rect box, int scale = 5);
+        Rect track(Mat 
