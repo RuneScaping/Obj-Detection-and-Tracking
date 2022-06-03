@@ -12,4 +12,12 @@ class Template{
     private:
         Mat model;
         Rect location;
-        i
+        int scale;
+};
+
+Template::Template()
+{
+    this->scale = 5;
+}
+
+void Template::initTracking(Mat frame, Rect box,
