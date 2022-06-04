@@ -35,3 +35,9 @@ void Template::initTracking(Mat frame, Rect box, int scale)
     {
         cvtColor(frame, frame, CV_RGB2GRAY);
     }
+    this->model = frame(this->location);
+}
+
+Rect Template::track(Mat frame)
+{
+    if(fra
