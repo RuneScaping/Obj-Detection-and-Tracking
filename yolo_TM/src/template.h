@@ -48,4 +48,8 @@ Rect Template::track(Mat frame)
     Mat gray;
     if(frame.channels() != 1)
     {
-        cvtColor(frame, gray
+        cvtColor(frame, gray, CV_RGB2GRAY);
+    }
+
+    Rect searchWindow;
+    searchWindow.width = this->location.width * sc
