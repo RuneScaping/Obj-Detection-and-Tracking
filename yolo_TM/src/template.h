@@ -43,4 +43,9 @@ Rect Template::track(Mat frame)
     if(frame.empty())
     {
         cout << "ERROR: frame is empty." << endl;
-        exi
+        exit(0);
+    }
+    Mat gray;
+    if(frame.channels() != 1)
+    {
+        cvtColor(frame, gray
