@@ -24,4 +24,8 @@ void Template::initTracking(Mat frame, Rect box, int scale)
 {
     this->location = box;
     this->scale = scale;
-    this->location &= Rect(0, 0, frame
+    this->location &= Rect(0, 0, frame.cols, frame.rows);
+
+    if(frame.empty())
+    {
+        cout << "ERROR: frame is empty." << endl;
