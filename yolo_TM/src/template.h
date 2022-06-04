@@ -20,4 +20,8 @@ Template::Template()
     this->scale = 5;
 }
 
-void Template::initTracking(Mat frame, Rect box,
+void Template::initTracking(Mat frame, Rect box, int scale)
+{
+    this->location = box;
+    this->scale = scale;
+    this->location &= Rect(0, 0, frame
