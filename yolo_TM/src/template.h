@@ -54,4 +54,6 @@ Rect Template::track(Mat frame)
     Rect searchWindow;
     searchWindow.width = this->location.width * scale;
     searchWindow.height = this->location.height * scale;
-    searchWindow.x = this->
+    searchWindow.x = this->location.x + this->location.width * 0.5 
+                        - searchWindow.width * 0.5;
+ 
