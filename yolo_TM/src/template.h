@@ -40,4 +40,7 @@ void Template::initTracking(Mat frame, Rect box, int scale)
 
 Rect Template::track(Mat frame)
 {
-    if(fra
+    if(frame.empty())
+    {
+        cout << "ERROR: frame is empty." << endl;
+        exi
