@@ -29,3 +29,9 @@ void Template::initTracking(Mat frame, Rect box, int scale)
     if(frame.empty())
     {
         cout << "ERROR: frame is empty." << endl;
+        exit(0);
+    }
+    if(frame.channels() != 1)
+    {
+        cvtColor(frame, frame, CV_RGB2GRAY);
+    }
