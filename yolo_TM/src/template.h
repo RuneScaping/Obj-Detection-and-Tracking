@@ -60,4 +60,7 @@ Rect Template::track(Mat frame)
                         - searchWindow.height * 0.5;
     
     if(searchWindow.x < 0)
-        searchWindow.x 
+        searchWindow.x = 0;
+    if(searchWindow.y < 0)
+        searchWindow.y = 0;
+    searchWindow &= Rect(0, 0, frame.cols
