@@ -69,4 +69,6 @@ Rect Template::track(Mat frame)
     matchTemplate(gray(searchWindow), this->model, similarity, CV_TM_CCOEFF_NORMED);
     double mag_r;
     Point point;
-    minMaxLoc(simil
+    minMaxLoc(similarity, 0, &mag_r, 0, &point);
+    this->location.x = point.x + searchWindow.x;
+    this-
