@@ -85,3 +85,19 @@ string GetCurrentTime2()
     time_t Time = time(NULL);
     tm* LocalTime = localtime(&Time);
     string Result;
+    
+    // add the year
+    Result += IntToString(LocalTime->tm_year + 1900) + "-";
+    // add the month
+    Result += IntToString(LocalTime->tm_mon + 1) + "-";
+    // add the day
+    Result += IntToString(LocalTime->tm_mday) + " ";
+    // add the hour
+    Result += IntToString(LocalTime->tm_hour) + ":";
+    // add the minutes
+    Result += IntToString(LocalTime->tm_min) + ":";
+    // add the seconds
+    Result += IntToString(LocalTime->tm_sec);
+
+    return Result;
+}
