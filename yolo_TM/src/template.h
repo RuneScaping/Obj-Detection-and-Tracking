@@ -74,4 +74,10 @@ Rect Template::track(Mat frame)
     this->location.y = point.y + searchWindow.y;
 
     this->model = gray(location);
-    return 
+    return this->location;
+}
+
+Rect Template::getLocation()
+{
+    return this->location;
+}
