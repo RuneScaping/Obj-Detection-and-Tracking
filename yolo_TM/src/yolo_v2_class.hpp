@@ -258,3 +258,112 @@ public:
             src_mat_gpu.upload(src_mat, stream);
             cv::cuda::cvtColor(src_mat_gpu, src_grey_gpu, CV_BGR2GRAY, 1, stream);
         }
+        if (old_gpu_id != gpu_id)
+            cv::cuda::setDevice(old_gpu_id);
+    }
+
+
+    std::vector<bbox_t> tracking_flow(cv::Mat dst_mat, bool check_error = true)
+    {
+        if (sync_PyrLKOpticalFlow_gpu.empty()) {
+            std::cout << "sync_PyrLKOpticalFlow_gpu isn't initialized \n";
+            return cur_bbox_vec;
+        }
+
+        int const old_gpu_id = cv::cuda::getDevice();
+        if(old_gpu_id != gpu_id)
+            cv::cuda::setDevice(gpu_id);
+
+        if (dst_mat_gpu.cols == 0) {
+            dst_mat_gpu = cv::cuda::GpuMat(dst_mat.size(), dst_mat.type());
+            dst_grey_gpu = cv::cuda::GpuMat(dst_mat.size(), CV_8UC1);
+        }
+
+        //dst_grey_gpu.upload(dst_mat, stream);    // use BGR
+        dst_mat_gpu.upload(dst_mat, stream);
+        cv::cuda::cvtColor(dst_mat_gpu, dst_grey_gpu, CV_BGR2GRAY, 1, stream);
+
+        if (src_grey_gpu.rows != dst_grey_gpu.rows || src_grey_gpu.cols != dst_grey_gpu.cols) {
+            stream.waitForCompletion();
+            src_grey_gpu = dst_grey_gpu.clone();
+            cv::cuda::setDevice(old_gpu_id);
+            return cur_bbox_vec;
+        }
+
+        ////sync_PyrLKOpticalFlow_gpu.sparse(src_grey_gpu, dst_grey_gpu, prev_pts_flow_gpu, cur_pts_flow_gpu, status_gpu, &err_gpu);    // OpenCV 2.4.x
+        sync_PyrLKOpticalFlow_gpu->calc(src_grey_gpu, dst_grey_gpu, prev_pts_flow_gpu, cur_pts_flow_gpu, status_gpu, err_gpu, stream);    // OpenCV 3.x
+
+        cv::Mat cur_pts_flow_cpu;
+        cur_pts_flow_gpu.download(cur_pts_flow_cpu, stream);
+
+        dst_grey_gpu.copyTo(src_grey_gpu, stream);
+
+        cv::Mat err_cpu, status_cpu;
+        err_gpu.download(err_cpu, stream);
+        status_gpu.download(status_cpu, stream);
+
+        stream.waitForCompletion();
+
+        std::vector<bbox_t> result_bbox_vec;
+
+        if (err_cpu.cols == cur_bbox_vec.size() && status_cpu.cols == cur_bbox_vec.size())
+        {
+            for (size_t i = 0; i < cur_bbox_vec.size(); ++i)
+            {
+                cv::Point2f cur_key_pt = cur_pts_flow_cpu.at<cv::Point2f>(0, i);
+                cv::Point2f prev_key_pt = prev_pts_flow_cpu.at<cv::Point2f>(0, i);
+
+                float moved_x = cur_key_pt.x - prev_key_pt.x;
+                float moved_y = cur_key_pt.y - prev_key_pt.y;
+
+                if (abs(moved_x) < 100 && abs(moved_y) < 100 && good_bbox_vec_flags[i])
+                    if (err_cpu.at<float>(0, i) < flow_error && status_cpu.at<unsigned char>(0, i) != 0 &&
+                        ((float)cur_bbox_vec[i].x + moved_x) > 0 && ((float)cur_bbox_vec[i].y + moved_y) > 0)
+                    {
+                        cur_bbox_vec[i].x += moved_x + 0.5;
+                        cur_bbox_vec[i].y += moved_y + 0.5;
+                        result_bbox_vec.push_back(cur_bbox_vec[i]);
+                    }
+                    else good_bbox_vec_flags[i] = false;
+                else good_bbox_vec_flags[i] = false;
+
+                //if(!check_error && !good_bbox_vec_flags[i]) result_bbox_vec.push_back(cur_bbox_vec[i]);
+            }
+        }
+
+        cur_pts_flow_gpu.swap(prev_pts_flow_gpu);
+        cur_pts_flow_cpu.copyTo(prev_pts_flow_cpu);
+
+        if (old_gpu_id != gpu_id)
+            cv::cuda::setDevice(old_gpu_id);
+
+        return result_bbox_vec;
+    }
+
+};
+
+#elif defined(TRACK_OPTFLOW) && defined(OPENCV)
+
+//#include <opencv2/optflow.hpp>
+#include <opencv2/video/tracking.hpp>
+
+class Tracker_optflow {
+public:
+    const int flow_error;
+
+
+    Tracker_optflow(int win_size = 9, int max_level = 3, int iterations = 8000, int _flow_error = -1) :
+        flow_error((_flow_error > 0)? _flow_error:(win_size*4))
+    {
+        sync_PyrLKOpticalFlow = cv::SparsePyrLKOpticalFlow::create();
+        sync_PyrLKOpticalFlow->setWinSize(cv::Size(win_size, win_size));    // 9, 15, 21, 31
+        sync_PyrLKOpticalFlow->setMaxLevel(max_level);        // +- 3 pt
+
+    }
+
+    // just to avoid extra allocations
+    cv::Mat dst_grey;
+    cv::Mat prev_pts_flow, cur_pts_flow;
+    cv::Mat status, err;
+
+    cv::Mat src_grey;    // used in both functions
