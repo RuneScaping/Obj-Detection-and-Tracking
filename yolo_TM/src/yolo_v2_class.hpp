@@ -561,3 +561,82 @@ public:
 
 
     void draw(cv::Mat draw_mat, bool show_small_boxes = false)
+    {
+        // draw preview box (from old or current frame)
+        for (size_t i = 0; i < preview_box_track_id.size(); ++i)
+        {
+            auto &prev_box = preview_box_track_id[i];
+
+            // draw object image
+            cv::Mat dst = prev_box.mat_resized_obj;
+            if (prev_box.last_showed_frames_ago < frames_history &&
+                dst.size() == cv::Size(preview_box_size, preview_box_size))
+            {
+                cv::Rect dst_rect_roi(cv::Point2i(i * preview_box_size, draw_mat.rows - bottom_offset), dst.size());
+                cv::Mat dst_roi = draw_mat(dst_rect_roi);
+                dst.copyTo(dst_roi);
+
+                cv::Scalar color = obj_id_to_color(prev_box.obj_id);
+                int thickness = (prev_box.current_detection) ? 5 : 1;
+                cv::rectangle(draw_mat, dst_rect_roi, color, thickness);
+
+                unsigned int const track_id = prev_box.track_id;
+                std::string track_id_str = (track_id > 0) ? std::to_string(track_id) : "";
+                putText(draw_mat, track_id_str, dst_rect_roi.tl() - cv::Point2i(-4, 5), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.9, cv::Scalar(0, 0, 0), 2);
+
+                std::string size_str = std::to_string(prev_box.bbox.w) + "x" + std::to_string(prev_box.bbox.h);
+                putText(draw_mat, size_str, dst_rect_roi.tl() + cv::Point2i(0, 12), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(0, 0, 0), 1);
+
+                if (!one_off_detections && prev_box.current_detection) {
+                    cv::line(draw_mat, dst_rect_roi.tl() + cv::Point2i(preview_box_size, 0),
+                        cv::Point2i(prev_box.bbox.x, prev_box.bbox.y + prev_box.bbox.h),
+                        color);
+                }
+
+                if (one_off_detections && show_small_boxes) {
+                    cv::Rect src_rect_roi(cv::Point2i(prev_box.bbox.x, prev_box.bbox.y),
+                        cv::Size(prev_box.bbox.w, prev_box.bbox.h));
+                    unsigned int const color_history = (255 * prev_box.last_showed_frames_ago) / frames_history;
+                    color = cv::Scalar(255 - 3 * color_history, 255 - 2 * color_history, 255 - 1 * color_history);
+                    if (prev_box.mat_obj.size() == src_rect_roi.size()) {
+                        prev_box.mat_obj.copyTo(draw_mat(src_rect_roi));
+                    }
+                    cv::rectangle(draw_mat, src_rect_roi, color, thickness);
+                    putText(draw_mat, track_id_str, src_rect_roi.tl() - cv::Point2i(0, 10), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(0, 0, 0), 1);
+                }
+            }
+        }
+    }
+};
+#endif    // OPENCV
+
+//extern "C" {
+#endif    // __cplusplus
+
+/*
+    // C - wrappers
+    YOLODLL_API void create_detector(char const* cfg_filename, char const* weight_filename, int gpu_id);
+    YOLODLL_API void delete_detector();
+    YOLODLL_API bbox_t* detect_custom(image_t img, float thresh, bool use_mean, int *result_size);
+    YOLODLL_API bbox_t* detect_resized(image_t img, int init_w, int init_h, float thresh, bool use_mean, int *result_size);
+    YOLODLL_API bbox_t* detect(image_t img, int *result_size);
+    YOLODLL_API image_t load_img(char *image_filename);
+    YOLODLL_API void free_img(image_t m);
+
+#ifdef __cplusplus
+}    // extern "C"
+
+static std::shared_ptr<void> c_detector_ptr;
+static std::vector<bbox_t> c_result_vec;
+
+void create_detector(char const* cfg_filename, char const* weight_filename, int gpu_id) {
+    c_detector_ptr = std::make_shared<YOLODLL_API Detector>(cfg_filename, weight_filename, gpu_id);
+}
+
+void delete_detector() { c_detector_ptr.reset(); }
+
+bbox_t* detect_custom(image_t img, float thresh, bool use_mean, int *result_size) {
+    c_result_vec = static_cast<Detector*>(c_detector_ptr.get())->detect(img, thresh, use_mean);
+    *result_size = c_result_vec.size();
+    return c_result_vec.data();
+}
