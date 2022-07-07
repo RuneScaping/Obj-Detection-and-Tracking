@@ -640,3 +640,23 @@ bbox_t* detect_custom(image_t img, float thresh, bool use_mean, int *result_size
     *result_size = c_result_vec.size();
     return c_result_vec.data();
 }
+
+bbox_t* detect_resized(image_t img, int init_w, int init_h, float thresh, bool use_mean, int *result_size) {
+    c_result_vec = static_cast<Detector*>(c_detector_ptr.get())->detect_resized(img, init_w, init_h, thresh, use_mean);
+    *result_size = c_result_vec.size();
+    return c_result_vec.data();
+}
+
+bbox_t* detect(image_t img, int *result_size) {
+    return detect_custom(img, 0.24, true, result_size);
+}
+
+image_t load_img(char *image_filename) {
+    return static_cast<Detector*>(c_detector_ptr.get())->load_image(image_filename);
+}
+void free_img(image_t m) {
+    static_cast<Detector*>(c_detector_ptr.get())->free_image(m);
+}
+
+#endif    // __cplusplus
+*/
